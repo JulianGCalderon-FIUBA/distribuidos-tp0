@@ -19,3 +19,7 @@ Para evitar tener que buildear las imagenes de Docker al cambiar los archivos de
 ## Ejercicio N°3:
 
 > Crear un script de bash `validar-echo-server.sh` que permita verificar el correcto funcionamiento del servidor utilizando el comando `netcat` para interactuar con el mismo. Dado que el servidor es un EchoServer, se debe enviar un mensaje al servidor y esperar recibir el mismo mensaje enviado. En caso de que la validación sea exitosa imprimir: `action: test_echo_server | result: success`, de lo contrario imprimir: `action: test_echo_server | result: fail`. El script deberá ubicarse en la raíz del proyecto. Netcat no debe ser instalado en la máquina host y no se puede exponer puertos del servidor para realizar la comunicación (hint: `docker network`).
+
+Para lograr verificar el correcto funcionamiento del servidor sin tener `nc` instalado ni exponer puertos, es necesario ejecutar la verificacion desde un contenedor de docker dentro de la misma `network`.
+
+Luego, la verificacion corre un contenedor de docker con la imagen `alpine` y ejecuta un shell script. Este script utiliza `nc` y `diff` para comparar la respuesta del servidor con el resultado esperado.
