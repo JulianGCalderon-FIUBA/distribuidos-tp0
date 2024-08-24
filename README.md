@@ -15,3 +15,7 @@ Para resolver este ejercicio, se definio un script de shell `generar-compose.sh`
 Para evitar tener que buildear las imagenes de Docker al cambiar los archivos de configuracion, entonces:
 1. Ignore los repectivos archivos a partir de un archivo `.dockerignore`
 2. Configure un bind mount desde Docker Compose para montar los archivos de configuracion existentes en la ubicacion esperada dentro de los contenedores.
+
+## Ejercicio N°3:
+
+> Crear un script de bash `validar-echo-server.sh` que permita verificar el correcto funcionamiento del servidor utilizando el comando `netcat` para interactuar con el mismo. Dado que el servidor es un EchoServer, se debe enviar un mensaje al servidor y esperar recibir el mismo mensaje enviado. En caso de que la validación sea exitosa imprimir: `action: test_echo_server | result: success`, de lo contrario imprimir: `action: test_echo_server | result: fail`. El script deberá ubicarse en la raíz del proyecto. Netcat no debe ser instalado en la máquina host y no se puede exponer puertos del servidor para realizar la comunicación (hint: `docker network`).
