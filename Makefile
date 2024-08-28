@@ -8,6 +8,9 @@ build: deps
 	go build -o bin/client ./client
 .PHONY: build
 
+run-client: build
+	cd ./client && ../bin/client
+
 docker-image:
 	docker build -f ./server/Dockerfile -t "server:latest" .
 	docker build -f ./client/Dockerfile -t "client:latest" .
