@@ -27,3 +27,11 @@ Luego, la verificacion corre un contenedor de docker con la imagen `alpine` y ej
 ## Ejercicio N°4:
 
 > Modificar servidor y cliente para que ambos sistemas terminen de forma _graceful_ al recibir la signal SIGTERM. Terminar la aplicación de forma _graceful_ implica que todos los _file descriptors_ (entre los que se encuentran archivos, sockets, threads y procesos) deben cerrarse correctamente antes que el thread de la aplicación principal muera. Loguear mensajes en el cierre de cada recurso (hint: Verificar que hace el flag `-t` utilizado en el comando `docker compose down`).
+
+Antes de comenzar a resolver el ejercicio, migré todo el servidor a Go. Esto sirvio como entrada en calor para el lenguaje.
+
+Para la implementacion del graceful shutdown, utlice el patron `context` de Go. En determinadas partes del codigo, se verifica que el contexto no haya finalizado. Si finaliza, entonces libera los recursos y retorna.
+- Desde el lado del cliente, se verifica el contexto despues de cada conexion 
+- Desde el lado del servidor, se utiliza una version no bloqueante del `accept`, y se verifica el contexto cada 0.5s. Esto permite que el servidor no se quede esperando a un cliente que nunca va a llegar.
+
+Para asegurarme de que siempre se liberan los recursos, utilice la instruccion de go `defer`. Esta asegura que se ejecuten los destructores incluso ante un `panic`.
