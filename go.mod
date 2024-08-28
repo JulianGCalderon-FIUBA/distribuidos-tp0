@@ -3,8 +3,7 @@ module github.com/juliangcalderon-fiuba/distribuidos-tp0
 go 1.23
 
 require (
-	github.com/pkg/errors v0.9.1
-	github.com/sirupsen/logrus v1.8.1
+	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/spf13/viper v1.8.1
 )
 
@@ -13,7 +12,6 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
-	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7 // indirect
 	github.com/pelletier/go-toml v1.9.3 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
