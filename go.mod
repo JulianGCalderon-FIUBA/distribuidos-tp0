@@ -1,6 +1,6 @@
 module github.com/juliangcalderon-fiuba/distribuidos-tp0
 
-go 1.17
+go 1.23
 
 require (
 	github.com/pkg/errors v0.9.1
