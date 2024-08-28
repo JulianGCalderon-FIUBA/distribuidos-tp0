@@ -1,6 +1,10 @@
 package main
 
 import (
+	"context"
+	"os/signal"
+	"syscall"
+
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -62,7 +66,10 @@ func main() {
 		log.Fatalf("failed to create server: %s", err)
 	}
 
-	err = s.run()
+	ctx, cancel_handler := signal.NotifyContext(context.Background(), syscall.SIGTERM)
+	defer cancel_handler()
+
+	err = s.run(ctx)
 	if err != nil {
 		log.Fatalf("failed to run server: %s", err)
 	}
