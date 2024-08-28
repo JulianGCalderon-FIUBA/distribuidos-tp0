@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
@@ -73,7 +76,10 @@ func main() {
 		loopAmount:    c.Loop.Amount,
 		loopPeriod:    c.Loop.Period,
 	}
-
 	client := newClient(clientConfig)
-	client.startClientLoop()
+
+	ctx, cancel_handler := signal.NotifyContext(context.Background(), syscall.SIGTERM)
+	defer cancel_handler()
+
+	client.startClientLoop(ctx)
 }

@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -40,37 +42,23 @@ func (c *client) createClientSocket() {
 	c.conn = conn
 }
 
-func (c *client) startClientLoop() {
+func (c *client) startClientLoop(ctx context.Context) {
 	for msgID := 1; msgID <= c.config.loopAmount; msgID++ {
-		c.createClientSocket()
-
-		// TODO: Modify the send to avoid short-write
-		fmt.Fprintf(
-			c.conn,
-			"[CLIENT %v] Message N°%v\n",
-			c.config.id,
-			msgID,
-		)
-		msg, err := bufio.NewReader(c.conn).ReadString('\n')
-		c.conn.Close()
-
+		err := c.sendMessage(msgID)
 		if err != nil {
-			log.Errorf(common.FmtLog("action", "receive_message",
-				"result", "fail",
-				"client_id", c.config.id,
-				"error", err,
-			))
 			return
 		}
 
-		log.Infof(common.FmtLog("action", "receive_message",
-			"result", "success",
-			"client_id", c.config.id,
-			"msg", msg,
-		))
-
 		// Wait a time between sending one message and the next one
-		time.Sleep(c.config.loopPeriod)
+		sleep_timer := time.After(c.config.loopPeriod)
+
+		select {
+		case <-ctx.Done():
+			log.Infof(common.FmtLog("action", "shutdown"))
+			return
+
+		case <-sleep_timer:
+		}
 
 	}
 
@@ -78,4 +66,54 @@ func (c *client) startClientLoop() {
 		"result", "success",
 		"client_id", c.config.id,
 	))
+}
+
+func (c *client) sendMessage(msgID int) (err error) {
+	c.createClientSocket()
+	defer func() {
+		closeErr := c.closeClientSocket()
+		err = errors.Join(err, closeErr)
+	}()
+
+	// TODO: Modify the send to avoid short-write
+	fmt.Fprintf(
+		c.conn,
+		"[CLIENT %v] Message N°%v\n",
+		c.config.id,
+		msgID,
+	)
+	msg, err := bufio.NewReader(c.conn).ReadString('\n')
+
+	if err != nil {
+		log.Errorf(common.FmtLog("action", "receive_message",
+			"result", "fail",
+			"client_id", c.config.id,
+			"error", err,
+		))
+	} else {
+		log.Infof(common.FmtLog("action", "receive_message",
+			"result", "success",
+			"client_id", c.config.id,
+			"msg", msg,
+		))
+
+	}
+
+	return
+}
+
+func (c *client) closeClientSocket() error {
+	err := c.conn.Close()
+	if err != nil {
+		log.Error(common.FmtLog("action", "close_connection",
+			"result", "fail",
+			"error", err,
+		))
+		return err
+	}
+
+	log.Info(common.FmtLog("action", "close_connection",
+		"result", "success",
+	))
+	return nil
 }
