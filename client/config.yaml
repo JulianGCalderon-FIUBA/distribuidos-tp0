@@ -8,3 +8,9 @@ log:
   level: "INFO"
 batch:
   maxAmount: 10
+bet:
+  firstName: "laura"
+  lastName: "lopez"
+  document: 40000001
+  birthdate: "2001-05-01"
+  number: 1

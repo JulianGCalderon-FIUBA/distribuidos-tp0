@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
+	"github.com/mitchellh/mapstructure"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
@@ -29,6 +30,13 @@ type config struct {
 	Batch struct {
 		MaxAmount int
 	}
+	Bet struct {
+		FirstName string
+		LastName  string
+		Document  int
+		Birthdate time.Time
+		Number    int
+	}
 }
 
 func initConfig() (config, error) {
@@ -38,11 +46,21 @@ func initConfig() (config, error) {
 	v.SetEnvPrefix("cli")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
+	_ = v.BindEnv("bet.firstName", "NOMBRE")
+	_ = v.BindEnv("bet.lastName", "APELLIDO")
+	_ = v.BindEnv("bet.document", "DOCUMENTO")
+	_ = v.BindEnv("bet.birthdate", "NACIMIENTO")
+	_ = v.BindEnv("bet.number", "NUMERO")
+
 	v.SetConfigFile("./config.yaml")
 	_ = v.ReadInConfig()
 
 	var c config
-	err := v.Unmarshal(&c)
+	err := v.Unmarshal(&c, viper.DecodeHook(
+		mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeHookFunc(time.DateOnly),
+			mapstructure.StringToTimeDurationHookFunc(),
+		)))
 
 	return c, err
 }
@@ -54,6 +72,11 @@ func logConfig(c config) {
 		"loop.amount", c.Loop.Amount,
 		"loop.period", c.Loop.Period,
 		"log.level", c.Log.Level,
+		"bet.firstName", c.Bet.FirstName,
+		"bet.lastName", c.Bet.LastName,
+		"bet.document", c.Bet.Document,
+		"bet.birthdate", c.Bet.Birthdate,
+		"bet.number", c.Bet.Number,
 	))
 }
 
