@@ -86,23 +86,22 @@ func (s *server) run(ctx context.Context) (err error) {
 			"ip", addr.IP,
 		))
 
-		bet, err := s.receiveBet(conn)
+		batchSize, err := s.receiveBatch(conn)
 		if err != nil {
-			log.Error(common.FmtLog("action", "apuesta_almacenada",
+			log.Error(common.FmtLog("action", "apuesta_recibida",
 				"result", "fail",
 				"error", err,
 			))
 		} else {
-			log.Info(common.FmtLog("action", "apuesta_almacenada",
+			log.Info(common.FmtLog("action", "apuesta_recibida",
 				"result", "success",
-				"dni", bet.Document,
-				"numero", bet.Number,
+				"cantidad", batchSize,
 			))
 		}
 	}
 }
 
-func (s *server) receiveBet(conn net.Conn) (bet lottery.Bet, err error) {
+func (s *server) receiveBatch(conn net.Conn) (batchSize int, err error) {
 	defer func() {
 		closeErr := closeConnection(conn)
 		err = errors.Join(err, closeErr)
@@ -117,34 +116,41 @@ func (s *server) receiveBet(conn net.Conn) (bet lottery.Bet, err error) {
 	}
 	hello, err := common.HelloFromRecord(helloRecord)
 	if err != nil {
-		return bet, fmt.Errorf("failed to parse hello: %w", err)
+		return batchSize, fmt.Errorf("failed to parse hello: %w", err)
+	}
+	batchSize = hello.BatchSize
+
+	bets := make([]lottery.Bet, 0, batchSize)
+
+	for i := 0; i < hello.BatchSize; i++ {
+		var localBetRecord []string
+		localBetRecord, err = reader.Read()
+		if err != nil {
+			return
+		}
+		localBet, err := common.LocalBetFromRecord(localBetRecord)
+		if err != nil {
+			return batchSize, fmt.Errorf("failed to parse bet: %w", err)
+		}
+		bet := lottery.Bet{
+			Agency:   hello.AgencyId,
+			LocalBet: localBet,
+		}
+
+		bets = append(bets, bet)
 	}
 
-	localBetRecord, err := reader.Read()
+	err = lottery.StoreBets(bets)
 	if err != nil {
-		return
-	}
-	localBet, err := common.LocalBetFromRecord(localBetRecord)
-	if err != nil {
-		return bet, fmt.Errorf("failed to parse bet: %w", err)
-	}
-
-	bet = lottery.Bet{
-		Agency:   hello.AgencyId,
-		LocalBet: localBet,
-	}
-
-	err = lottery.StoreBets([]lottery.Bet{bet})
-	if err != nil {
-		return bet, fmt.Errorf("failed to store bet: %w", err)
+		return batchSize, fmt.Errorf("failed to store bet: %w", err)
 	}
 
 	writer := csv.NewWriter(conn)
-	_ = writer.Write([]string{"OK"})
+	_ = writer.Write(common.Ok{}.ToRecord())
 	writer.Flush()
 	err = writer.Error()
 	if err != nil {
-		return bet, fmt.Errorf("failed to send ok: %w", err)
+		return batchSize, fmt.Errorf("failed to send ok: %w", err)
 	}
 
 	return

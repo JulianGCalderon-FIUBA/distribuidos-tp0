@@ -79,7 +79,7 @@ func (c *client) sendBets(ctx context.Context, bets []common.LocalBet) error {
 	return nil
 }
 
-func (c *client) sendBatch(bet []common.LocalBet) (err error) {
+func (c *client) sendBatch(bets []common.LocalBet) (err error) {
 	c.createClientSocket()
 	defer func() {
 		closeErr := c.closeClientSocket()
@@ -87,8 +87,10 @@ func (c *client) sendBatch(bet []common.LocalBet) (err error) {
 	}()
 
 	writer := csv.NewWriter(c.conn)
-	_ = writer.Write(common.Hello{AgencyId: c.config.id}.ToRecord())
-	_ = writer.Write(bet[0].ToRecord())
+	_ = writer.Write(common.Hello{AgencyId: c.config.id, BatchSize: len(bets)}.ToRecord())
+	for _, bet := range bets {
+		_ = writer.Write(bet.ToRecord())
+	}
 	writer.Flush()
 	err = writer.Error()
 	if err != nil {

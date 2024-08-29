@@ -6,19 +6,21 @@ import (
 )
 
 type Hello struct {
-	AgencyId int
+	AgencyId  int
+	BatchSize int
 }
 
 func (h Hello) ToRecord() []string {
 	return []string{
 		"HELLO",
 		strconv.Itoa(h.AgencyId),
+		strconv.Itoa(h.BatchSize),
 	}
 }
 
 func HelloFromRecord(record []string) (hello Hello, err error) {
-	if len(record) != 2 {
-		err = fmt.Errorf("record should contains 2 fields")
+	if len(record) != 3 {
+		err = fmt.Errorf("record should contains 3 fields")
 		return
 	}
 
@@ -31,8 +33,13 @@ func HelloFromRecord(record []string) (hello Hello, err error) {
 	if err != nil {
 		return
 	}
-
 	hello.AgencyId = agencyId
+
+	batchSize, err := strconv.Atoi(record[2])
+	if err != nil {
+		return
+	}
+	hello.BatchSize = batchSize
 
 	return
 }
