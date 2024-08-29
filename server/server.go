@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
@@ -87,7 +86,7 @@ func (s *server) run(ctx context.Context) (err error) {
 			"ip", addr.IP,
 		))
 
-		bet, err := s.handleClientConnection(conn)
+		bet, err := s.receiveBet(conn)
 		if err != nil {
 			log.Error(common.FmtLog("action", "apuesta_almacenada",
 				"result", "fail",
@@ -101,10 +100,9 @@ func (s *server) run(ctx context.Context) (err error) {
 			))
 		}
 	}
-
 }
 
-func (s *server) handleClientConnection(conn net.Conn) (bet lottery.Bet, err error) {
+func (s *server) receiveBet(conn net.Conn) (bet lottery.Bet, err error) {
 	defer func() {
 		closeErr := closeConnection(conn)
 		err = errors.Join(err, closeErr)
@@ -112,20 +110,14 @@ func (s *server) handleClientConnection(conn net.Conn) (bet lottery.Bet, err err
 
 	reader := csv.NewReader(conn)
 	reader.FieldsPerRecord = -1
+
 	helloRecord, err := reader.Read()
 	if err != nil {
 		return
 	}
-
-	if len(helloRecord) != 2 {
-		return bet, fmt.Errorf("invalid hello message")
-	}
-	if helloRecord[0] != "HELLO" {
-		return bet, fmt.Errorf("invalid hello message")
-	}
-	agencyId, err := strconv.Atoi(helloRecord[1])
+	hello, err := common.HelloFromRecord(helloRecord)
 	if err != nil {
-		return bet, fmt.Errorf("invalid hello message")
+		return bet, fmt.Errorf("failed to parse hello: %w", err)
 	}
 
 	localBetRecord, err := reader.Read()
@@ -134,17 +126,17 @@ func (s *server) handleClientConnection(conn net.Conn) (bet lottery.Bet, err err
 	}
 	localBet, err := common.LocalBetFromRecord(localBetRecord)
 	if err != nil {
-		return
+		return bet, fmt.Errorf("failed to parse bet: %w", err)
 	}
 
 	bet = lottery.Bet{
-		Agency:   agencyId,
+		Agency:   hello.AgencyId,
 		LocalBet: localBet,
 	}
 
 	err = lottery.StoreBets([]lottery.Bet{bet})
 	if err != nil {
-		return
+		return bet, fmt.Errorf("failed to store bet: %w", err)
 	}
 
 	writer := csv.NewWriter(conn)
@@ -152,7 +144,7 @@ func (s *server) handleClientConnection(conn net.Conn) (bet lottery.Bet, err err
 	writer.Flush()
 	err = writer.Error()
 	if err != nil {
-		return
+		return bet, fmt.Errorf("failed to send ok: %w", err)
 	}
 
 	return

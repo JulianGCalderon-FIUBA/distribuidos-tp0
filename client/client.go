@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
 )
@@ -47,7 +46,7 @@ func (c *client) sendBet(bet common.LocalBet) (err error) {
 	}()
 
 	writer := csv.NewWriter(c.conn)
-	_ = writer.Write([]string{"HELLO", strconv.Itoa(c.config.id)})
+	_ = writer.Write(common.Hello{AgencyId: c.config.id}.ToRecord())
 	_ = writer.Write(bet.ToRecord())
 	writer.Flush()
 	err = writer.Error()
@@ -56,18 +55,16 @@ func (c *client) sendBet(bet common.LocalBet) (err error) {
 	}
 
 	reader := csv.NewReader(c.conn)
-	response, err := reader.Read()
+	okRecord, err := reader.Read()
 	if err != nil {
 		return
 	}
-
-	code := response[0]
-	switch code {
-	case "OK":
-		return
-	default:
-		return fmt.Errorf("server didn't send OK: %v", code)
+	_, err = common.OkFromRecord(okRecord)
+	if err != nil {
+		return fmt.Errorf("server didn't send ok")
 	}
+
+	return
 }
 
 func (c *client) closeClientSocket() error {
