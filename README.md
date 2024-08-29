@@ -119,3 +119,35 @@ Luego, se puede observar el archivo CSV (aunque al tener el mismo archivo de con
 > La cantidad máxima de apuestas dentro de cada _batch_ debe ser configurable desde config.yaml. Respetar la clave `batch: maxAmount`, pero modificar el valor por defecto de modo tal que los paquetes no excedan los 8kB.
 >
 > El servidor, por otro lado, deberá responder con éxito solamente si todas las apuestas del _batch_ fueron procesadas correctamente.
+
+El protocolo sigue la siguiente secuencia:
+1. **Client**: Se conecta al servidor
+1. **Client**: Envia un mensaje de HELLO con su ID y la cantidad de apuestas a enviar
+1. **Cliente**: Envia todas las apuestas del batch
+1. **Servidor**: Guarda todas las apuestas a disco
+1. **Servidor**: Envia un respuesta al cliente:
+   - OK si se procesaron todas las apuestas correctamente
+   - ERR si se encontro algun error
+1. **Servidor**: Espera al siguiente cliente
+
+Para probar la correcta ejecucion del sistema, se puede ejecutar:
+```bash
+make docker-compose-up
+```
+
+Luego, se puede observar el archivo CSV
+```bash
+docker exec server cat bets.csv | less
+```
+
+Tambien podemos contar la cantidad de regitros guardados contando las lineas del archivos
+```bash
+> docker exec server wc -l bets.csv
+78697 bets.csv
+```
+
+¿Y si queremos contar la cantidad de ganadores?
+```bash
+> docker exec server sh -c 'cat bets.csv | cut -d, -f6 | grep -o 7574 | wc -l'
+10
+```
