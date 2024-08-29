@@ -1,15 +1,17 @@
 package main
 
 import (
-	"bufio"
 	"context"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
+	"github.com/juliangcalderon-fiuba/distribuidos-tp0/server/lottery"
 )
 
 type server struct {
@@ -75,7 +77,6 @@ func (s *server) run(ctx context.Context) (err error) {
 
 			break
 		}
-
 		addr, err := net.ResolveTCPAddr(conn.RemoteAddr().Network(), conn.RemoteAddr().String())
 		if err != nil {
 			return err
@@ -86,42 +87,73 @@ func (s *server) run(ctx context.Context) (err error) {
 			"ip", addr.IP,
 		))
 
-		err = s.handleClientConnection(conn)
+		bet, err := s.handleClientConnection(conn)
 		if err != nil {
-			log.Error(common.FmtLog("action", "receive_message",
+			log.Error(common.FmtLog("action", "apuesta_almacenada",
 				"result", "fail",
 				"error", err,
+			))
+		} else {
+			log.Info(common.FmtLog("action", "apuesta_almacenada",
+				"result", "success",
+				"dni", bet.Document,
+				"numero", bet.Number,
 			))
 		}
 	}
 
 }
 
-func (s *server) handleClientConnection(conn net.Conn) (err error) {
+func (s *server) handleClientConnection(conn net.Conn) (bet lottery.Bet, err error) {
 	defer func() {
 		closeErr := closeConnection(conn)
 		err = errors.Join(err, closeErr)
 	}()
 
-	msg, err := bufio.NewReader(conn).ReadString('\n')
+	reader := csv.NewReader(conn)
+	reader.FieldsPerRecord = -1
+	helloRecord, err := reader.Read()
 	if err != nil {
 		return
 	}
 
-	addr, err := net.ResolveTCPAddr(conn.RemoteAddr().Network(), conn.RemoteAddr().String())
+	if len(helloRecord) != 2 {
+		return bet, fmt.Errorf("invalid hello message")
+	}
+	if helloRecord[0] != "HELLO" {
+		return bet, fmt.Errorf("invalid hello message")
+	}
+	agencyId, err := strconv.Atoi(helloRecord[1])
+	if err != nil {
+		return bet, fmt.Errorf("invalid hello message")
+	}
+
+	localBetRecord, err := reader.Read()
+	if err != nil {
+		return
+	}
+	localBet, err := common.LocalBetFromRecord(localBetRecord)
 	if err != nil {
 		return
 	}
 
-	log.Info(common.FmtLog("action", "receive_message",
-		"result", "success",
-		"ip", addr.IP,
-		"msg", msg,
-	))
+	bet = lottery.Bet{
+		Agency:   agencyId,
+		LocalBet: localBet,
+	}
 
-	writer := bufio.NewWriter(conn)
-	_, _ = writer.WriteString(msg)
-	err = writer.Flush()
+	err = lottery.StoreBets([]lottery.Bet{bet})
+	if err != nil {
+		return
+	}
+
+	writer := csv.NewWriter(conn)
+	_ = writer.Write([]string{"OK"})
+	writer.Flush()
+	err = writer.Error()
+	if err != nil {
+		return
+	}
 
 	return
 }
@@ -135,10 +167,6 @@ func closeConnection(conn net.Conn) error {
 		))
 		return err
 	}
-
-	log.Info(common.FmtLog("action", "close_connection",
-		"result", "success",
-	))
 	return nil
 }
 
@@ -151,9 +179,5 @@ func closeListener(listener net.Listener) error {
 		))
 		return err
 	}
-
-	log.Info(common.FmtLog("action", "close_listener",
-		"result", "success",
-	))
 	return nil
 }
