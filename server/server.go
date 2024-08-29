@@ -140,12 +140,22 @@ func (s *server) receiveBatch(conn net.Conn) (batchSize int, err error) {
 		bets = append(bets, bet)
 	}
 
+	writer := csv.NewWriter(conn)
+
 	err = lottery.StoreBets(bets)
 	if err != nil {
-		return batchSize, fmt.Errorf("failed to store bet: %w", err)
+		storeErr := fmt.Errorf("failed to store bets: %w", err)
+
+		_ = writer.Write(common.Err{}.ToRecord())
+		writer.Flush()
+		sendErr := writer.Error()
+		if err != nil {
+			sendErr = fmt.Errorf("failed to send err message: %w", err)
+		}
+
+		return batchSize, errors.Join(storeErr, sendErr)
 	}
 
-	writer := csv.NewWriter(conn)
 	_ = writer.Write(common.Ok{}.ToRecord())
 	writer.Flush()
 	err = writer.Error()

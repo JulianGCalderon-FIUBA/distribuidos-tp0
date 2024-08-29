@@ -65,3 +65,11 @@ func OkFromRecord(record []string) (ok Ok, err error) {
 
 	return
 }
+
+type Err struct{}
+
+func (o Err) ToRecord() []string {
+	return []string{
+		"ERR",
+	}
+}
