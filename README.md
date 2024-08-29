@@ -130,6 +130,8 @@ El protocolo sigue la siguiente secuencia:
    - ERR si se encontro algun error
 1. **Servidor**: Espera al siguiente cliente
 
+Bajo este protocolo, cada apuesta ocupa como maximo 57bytes (longitud de la linea mas larga del dataset, contando el salto de linea). Luego, podemos usar un tamaño de batch de 140 = 8000 // 57, de modo que los paquetes no excedan los 8kb.
+
 Para probar la correcta ejecucion del sistema, se puede ejecutar:
 ```bash
 make docker-compose-up
