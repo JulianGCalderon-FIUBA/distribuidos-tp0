@@ -23,3 +23,33 @@ func (b LocalBet) ToRecord() []string {
 		strconv.Itoa(b.Number),
 	}
 }
+
+func LocalBetFromRecord(record []string) (bet LocalBet, err error) {
+	if len(record) != 5 {
+		err = fmt.Errorf("record should contains 5 fields")
+		return
+	}
+
+	bet.FirstName = record[0]
+	bet.LastName = record[1]
+
+	document, err := strconv.Atoi(record[2])
+	if err != nil {
+		return
+	}
+	bet.Document = document
+
+	birthdate, err := time.Parse(time.DateOnly, record[3])
+	if err != nil {
+		return
+	}
+	bet.Birthdate = birthdate
+
+	number, err := strconv.Atoi(record[4])
+	if err != nil {
+		return
+	}
+	bet.Number = number
+
+	return
+}
