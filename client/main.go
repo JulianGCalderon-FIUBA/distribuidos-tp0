@@ -1,10 +1,7 @@
 package main
 
 import (
-	"context"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
@@ -30,13 +27,7 @@ type config struct {
 	Batch struct {
 		MaxAmount int
 	}
-	Bet struct {
-		FirstName string
-		LastName  string
-		Document  int
-		Birthdate time.Time
-		Number    int
-	}
+	Bet common.LocalBet
 }
 
 func initConfig() (config, error) {
@@ -96,13 +87,20 @@ func main() {
 	clientConfig := clientConfig{
 		serverAddress: c.Server.Address,
 		id:            c.Id,
-		loopAmount:    c.Loop.Amount,
-		loopPeriod:    c.Loop.Period,
 	}
 	client := newClient(clientConfig)
 
-	ctx, cancel_handler := signal.NotifyContext(context.Background(), syscall.SIGTERM)
-	defer cancel_handler()
-
-	client.startClientLoop(ctx)
+	err = client.sendBet(c.Bet)
+	if err != nil {
+		log.Error(common.FmtLog("action", "apuesta_enviada",
+			"result", "fail",
+			"error", err,
+		))
+	} else {
+		log.Info(common.FmtLog("action", "apuesta_enviada",
+			"result", "success",
+			"dni", c.Bet.Document,
+			"numero", c.Bet.Number,
+		))
+	}
 }

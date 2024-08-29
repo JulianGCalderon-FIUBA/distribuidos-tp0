@@ -1,12 +1,11 @@
 package main
 
 import (
-	"bufio"
-	"context"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"net"
-	"time"
+	"strconv"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
 )
@@ -14,8 +13,6 @@ import (
 type clientConfig struct {
 	id            int
 	serverAddress string
-	loopAmount    int
-	loopPeriod    time.Duration
 }
 
 type client struct {
@@ -42,64 +39,35 @@ func (c *client) createClientSocket() {
 	c.conn = conn
 }
 
-func (c *client) startClientLoop(ctx context.Context) {
-	for msgID := 1; msgID <= c.config.loopAmount; msgID++ {
-		err := c.sendMessage(msgID)
-		if err != nil {
-			return
-		}
-
-		// Wait a time between sending one message and the next one
-		sleep_timer := time.After(c.config.loopPeriod)
-
-		select {
-		case <-ctx.Done():
-			log.Infof(common.FmtLog("action", "shutdown"))
-			return
-
-		case <-sleep_timer:
-		}
-
-	}
-
-	log.Infof(common.FmtLog("action", "loop_finished",
-		"result", "success",
-		"client_id", c.config.id,
-	))
-}
-
-func (c *client) sendMessage(msgID int) (err error) {
+func (c *client) sendBet(bet common.LocalBet) (err error) {
 	c.createClientSocket()
 	defer func() {
 		closeErr := c.closeClientSocket()
 		err = errors.Join(err, closeErr)
 	}()
 
-	// TODO: Modify the send to avoid short-write
-	fmt.Fprintf(
-		c.conn,
-		"[CLIENT %v] Message N°%v\n",
-		c.config.id,
-		msgID,
-	)
-	msg, err := bufio.NewReader(c.conn).ReadString('\n')
-
+	writer := csv.NewWriter(c.conn)
+	_ = writer.Write([]string{"HELLO", strconv.Itoa(c.config.id)})
+	_ = writer.Write(bet.ToRecord())
+	writer.Flush()
+	err = writer.Error()
 	if err != nil {
-		log.Errorf(common.FmtLog("action", "receive_message",
-			"result", "fail",
-			"client_id", c.config.id,
-			"error", err,
-		))
-	} else {
-		log.Infof(common.FmtLog("action", "receive_message",
-			"result", "success",
-			"client_id", c.config.id,
-			"msg", msg,
-		))
-
+		return
 	}
 
-	return
+	reader := csv.NewReader(c.conn)
+	response, err := reader.Read()
+	if err != nil {
+		return
+	}
+
+	code := response[0]
+	switch code {
+	case "OK":
+		return
+	default:
+		return fmt.Errorf("server didn't send OK: %v", code)
+	}
 }
 
 func (c *client) closeClientSocket() error {
@@ -111,9 +79,5 @@ func (c *client) closeClientSocket() error {
 		))
 		return err
 	}
-
-	log.Info(common.FmtLog("action", "close_connection",
-		"result", "success",
-	))
 	return nil
 }
