@@ -23,7 +23,6 @@ type config struct {
 	Batch struct {
 		MaxAmount int
 	}
-	Bet common.LocalBet
 }
 
 func initConfig() (config, error) {
@@ -32,12 +31,6 @@ func initConfig() (config, error) {
 	v.AutomaticEnv()
 	v.SetEnvPrefix("cli")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
-	_ = v.BindEnv("bet.firstName", "NOMBRE")
-	_ = v.BindEnv("bet.lastName", "APELLIDO")
-	_ = v.BindEnv("bet.document", "DOCUMENTO")
-	_ = v.BindEnv("bet.birthdate", "NACIMIENTO")
-	_ = v.BindEnv("bet.number", "NUMERO")
 
 	v.SetConfigFile("./config.yaml")
 	_ = v.ReadInConfig()
@@ -56,12 +49,8 @@ func logConfig(c config) {
 	log.Infof(common.FmtLog("action", "config",
 		"result", "success",
 		"server.address", c.Server.Address,
+		"batch.maxAmount", c.Batch.MaxAmount,
 		"log.level", c.Log.Level,
-		"bet.firstName", c.Bet.FirstName,
-		"bet.lastName", c.Bet.LastName,
-		"bet.document", c.Bet.Document,
-		"bet.birthdate", c.Bet.Birthdate,
-		"bet.number", c.Bet.Number,
 	))
 }
 
@@ -83,7 +72,6 @@ func main() {
 		id:            c.Id,
 	}
 	client := newClient(clientConfig)
-
 	err = client.sendBet(c.Bet)
 	if err != nil {
 		log.Error(common.FmtLog("action", "apuesta_enviada",
