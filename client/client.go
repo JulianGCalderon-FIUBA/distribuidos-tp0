@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 
 type clientConfig struct {
 	id            int
+	batchSize     int
 	serverAddress string
 }
 
@@ -38,7 +40,46 @@ func (c *client) createClientSocket() {
 	c.conn = conn
 }
 
-func (c *client) sendBet(bet common.LocalBet) (err error) {
+func (c *client) sendBets(ctx context.Context, bets []common.LocalBet) error {
+	for len(bets) > 0 {
+		currentBatchEnd := min(len(bets), c.config.batchSize)
+
+		var batch []common.LocalBet
+		bets, batch = bets[currentBatchEnd:], bets[:currentBatchEnd]
+
+		err := c.sendBatch(batch)
+		if err != nil {
+			log.Error(common.FmtLog(
+				"action", "send_batch",
+				"result", "fail",
+				"error", err,
+			))
+		} else {
+			log.Info(common.FmtLog(
+				"action", "send_batch",
+				"result", "success",
+				"batchSize", len(batch),
+			))
+		}
+
+		select {
+		case <-ctx.Done():
+			log.Info(common.FmtLog(
+				"action", "shutdown",
+			))
+			return nil
+		default:
+		}
+	}
+
+	log.Info(common.FmtLog(
+		"action", "finished",
+	))
+
+	return nil
+}
+
+func (c *client) sendBatch(bet []common.LocalBet) (err error) {
 	c.createClientSocket()
 	defer func() {
 		closeErr := c.closeClientSocket()
@@ -47,7 +88,7 @@ func (c *client) sendBet(bet common.LocalBet) (err error) {
 
 	writer := csv.NewWriter(c.conn)
 	_ = writer.Write(common.Hello{AgencyId: c.config.id}.ToRecord())
-	_ = writer.Write(bet.ToRecord())
+	_ = writer.Write(bet[0].ToRecord())
 	writer.Flush()
 	err = writer.Error()
 	if err != nil {
