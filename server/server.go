@@ -13,8 +13,18 @@ import (
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/server/lottery"
 )
 
+const MAX_AGENCIES = 5
+
 type server struct {
-	listener *net.TCPListener
+	listener    *net.TCPListener
+	connections [MAX_AGENCIES]handler
+}
+
+type handler struct {
+	agencyId int
+	conn     *net.TCPConn
+	reader   *csv.Reader
+	writer   *csv.Writer
 }
 
 func newServer(port int, listenBacklog int) (*server, error) {
@@ -36,132 +46,179 @@ func newServer(port int, listenBacklog int) (*server, error) {
 }
 
 func (s *server) run(ctx context.Context) (err error) {
+	_ = ctx
+
 	defer func() {
-		closeErr := closeListener(s.listener)
-		err = errors.Join(err, closeErr)
+		errs := make([]error, 0, len(s.connections)+2)
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		err = closeListener(s.listener)
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		for _, handler := range s.connections {
+			if handler.conn == nil {
+				continue
+			}
+			err := closeConnection(handler.conn)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
+
+		err = errors.Join(errs...)
 	}()
 
 	for {
-		var conn net.Conn = nil
+		err = s.acceptConnection()
+		if err != nil {
+			log.Info(common.FmtLog("action", "connected",
+				"result", "fail",
+				"error", err,
+			))
+			return
+		}
 
-		log.Info(common.FmtLog("action", "accept_connections",
-			"result", "in_progress",
-		))
-
-		// We loop until a connection is accepted, or the context finalizes.
-		for {
-			select {
-			case <-ctx.Done():
-				// If the context finalizes, just return
-				log.Infof(common.FmtLog("action", "shutdown"))
-				return
-			default:
-			}
-
-			err = s.listener.SetDeadline(time.Now().Add(500 * time.Millisecond))
-			if err != nil {
-				return err
-			}
-
-			conn, err = s.listener.Accept()
-			// If the deadline exceeded, retry
-			if errors.Is(err, os.ErrDeadlineExceeded) {
-				err = nil
+		for agencyId, handler := range s.connections {
+			if handler.conn == nil {
 				continue
 			}
-			// On any other error, just return
+
+			err := handler.receiveBatch()
 			if err != nil {
-				return
+				log.Error(common.FmtLog("action", "apuesta_recibida",
+					"result", "fail",
+					"agency_id", agencyId,
+					"error", err,
+				))
 			}
-
-			break
-		}
-		addr, err := net.ResolveTCPAddr(conn.RemoteAddr().Network(), conn.RemoteAddr().String())
-		if err != nil {
-			return err
-		}
-
-		log.Info(common.FmtLog("action", "accept_connections",
-			"result", "success",
-			"ip", addr.IP,
-		))
-
-		batchSize, err := s.receiveBatch(conn)
-		if err != nil {
-			log.Error(common.FmtLog("action", "apuesta_recibida",
-				"result", "fail",
-				"cantidad", batchSize,
-			))
-		} else {
-			log.Info(common.FmtLog("action", "apuesta_recibida",
-				"result", "success",
-				"cantidad", batchSize,
-			))
 		}
 	}
 }
 
-func (s *server) receiveBatch(conn net.Conn) (batchSize int, err error) {
-	defer func() {
-		closeErr := closeConnection(conn)
-		err = errors.Join(err, closeErr)
-	}()
-
-	reader := csv.NewReader(conn)
-	reader.FieldsPerRecord = -1
-
-	helloRecord, err := reader.Read()
+func (s *server) acceptConnection() error {
+	err := s.listener.SetDeadline(time.Now().Add(500 * time.Millisecond))
 	if err != nil {
-		return
+		return err
+	}
+
+	conn, err := s.listener.AcceptTCP()
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		return nil
+	}
+
+	handler := handler{
+		conn:   conn,
+		reader: csv.NewReader(conn),
+		writer: csv.NewWriter(conn),
+	}
+	handler.reader.FieldsPerRecord = -1
+
+	helloRecord, err := handler.reader.Read()
+	if err != nil {
+		closeErr := closeConnection(conn)
+		return errors.Join(err, closeErr)
 	}
 	hello, err := common.HelloFromRecord(helloRecord)
 	if err != nil {
-		return batchSize, fmt.Errorf("failed to parse hello: %w", err)
+		closeErr := closeConnection(conn)
+		return errors.Join(err, closeErr)
 	}
-	batchSize = hello.BatchSize
+	handler.agencyId = hello.AgencyId
 
-	bets := make([]lottery.Bet, 0, batchSize)
+	if s.connections[hello.AgencyId].conn != nil {
+		err := closeConnection(conn)
+		log.Error(common.FmtLog("action", "connect",
+			"result", "fail",
+			"agency_id", hello.AgencyId,
+			"error", "already connected",
+		))
 
-	for i := 0; i < hello.BatchSize; i++ {
+		return err
+	}
+	s.connections[hello.AgencyId] = handler
+	log.Info(common.FmtLog("action", "connect",
+		"result", "success",
+		"agency_id", hello.AgencyId,
+	))
+
+	return nil
+}
+
+func (h handler) receiveBatch() (err error) {
+	err = h.conn.SetDeadline(time.Now().Add(500 * time.Millisecond))
+	if err != nil {
+		return
+	}
+
+	batchRecord, err := h.reader.Read()
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		err = nil
+		return
+	}
+	if err != nil {
+		return
+	}
+
+	err = h.conn.SetDeadline(time.Time{})
+	if err != nil {
+		return
+	}
+
+	batch, err := common.BatchFromRecord(batchRecord)
+	if err != nil {
+		return fmt.Errorf("failed to parse batch: %w", err)
+	}
+
+	bets := make([]lottery.Bet, 0, batch.BatchSize)
+
+	for i := 0; i < batch.BatchSize; i++ {
 		var localBetRecord []string
-		localBetRecord, err = reader.Read()
+		localBetRecord, err = h.reader.Read()
 		if err != nil {
 			return
 		}
 		localBet, err := common.LocalBetFromRecord(localBetRecord)
 		if err != nil {
-			return batchSize, fmt.Errorf("failed to parse bet: %w", err)
+			return fmt.Errorf("failed to parse bet: %w", err)
 		}
 		bet := lottery.Bet{
-			Agency:   hello.AgencyId,
+			Agency:   h.agencyId,
 			LocalBet: localBet,
 		}
 
 		bets = append(bets, bet)
 	}
 
-	writer := csv.NewWriter(conn)
-
 	err = lottery.StoreBets(bets)
 	if err != nil {
 		storeErr := fmt.Errorf("failed to store bets: %w", err)
 
-		_ = writer.Write(common.Err{}.ToRecord())
-		writer.Flush()
-		sendErr := writer.Error()
-		if err != nil {
+		_ = h.writer.Write(common.Err{}.ToRecord())
+		h.writer.Flush()
+		sendErr := h.writer.Error()
+		if sendErr != nil {
 			sendErr = fmt.Errorf("failed to send err message: %w", err)
 		}
 
-		return batchSize, errors.Join(storeErr, sendErr)
+		return errors.Join(storeErr, sendErr)
 	}
 
-	_ = writer.Write(common.Ok{}.ToRecord())
-	writer.Flush()
-	err = writer.Error()
+	_ = h.writer.Write(common.Ok{}.ToRecord())
+	h.writer.Flush()
+	err = h.writer.Error()
 	if err != nil {
-		return batchSize, fmt.Errorf("failed to send ok: %w", err)
+		return fmt.Errorf("failed to send ok: %w", err)
 	}
+
+	log.Info(common.FmtLog("action", "apuesta_recibida",
+		"result", "success",
+		"agency_id", h.agencyId,
+		"cantidad", batch.BatchSize,
+	))
 
 	return
 }

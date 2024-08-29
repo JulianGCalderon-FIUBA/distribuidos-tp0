@@ -6,21 +6,19 @@ import (
 )
 
 type Hello struct {
-	AgencyId  int
-	BatchSize int
+	AgencyId int
 }
 
 func (h Hello) ToRecord() []string {
 	return []string{
 		"HELLO",
 		strconv.Itoa(h.AgencyId),
-		strconv.Itoa(h.BatchSize),
 	}
 }
 
 func HelloFromRecord(record []string) (hello Hello, err error) {
-	if len(record) != 3 {
-		err = fmt.Errorf("record should contains 3 fields")
+	if len(record) != 2 {
+		err = fmt.Errorf("record should contains 2 fields")
 		return
 	}
 
@@ -35,11 +33,36 @@ func HelloFromRecord(record []string) (hello Hello, err error) {
 	}
 	hello.AgencyId = agencyId
 
-	batchSize, err := strconv.Atoi(record[2])
+	return
+}
+
+type Batch struct {
+	BatchSize int
+}
+
+func (h Batch) ToRecord() []string {
+	return []string{
+		"BATCH",
+		strconv.Itoa(h.BatchSize),
+	}
+}
+
+func BatchFromRecord(record []string) (batch Batch, err error) {
+	if len(record) != 2 {
+		err = fmt.Errorf("record should contains 2 fields")
+		return
+	}
+
+	if record[0] != "BATCH" {
+		err = fmt.Errorf("first record should be BATCH")
+		return
+	}
+
+	batchSize, err := strconv.Atoi(record[1])
 	if err != nil {
 		return
 	}
-	hello.BatchSize = batchSize
+	batch.BatchSize = batchSize
 
 	return
 }
