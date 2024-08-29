@@ -90,7 +90,7 @@ func (s *server) run(ctx context.Context) (err error) {
 		if err != nil {
 			log.Error(common.FmtLog("action", "apuesta_recibida",
 				"result", "fail",
-				"error", err,
+				"cantidad", batchSize,
 			))
 		} else {
 			log.Info(common.FmtLog("action", "apuesta_recibida",
