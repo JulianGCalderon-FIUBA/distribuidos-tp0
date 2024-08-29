@@ -15,11 +15,11 @@ build-server: deps
 	go build -o bin/server ./server
 .PHONY: build-server
 
-run-client: build
+run-client: build-client
 	cd ./client && ../bin/client
 .PHONY: run-client
 
-run-server: build
+run-server: build-server
 	cd ./server && ../bin/server
 .PHONY: run-server
 
