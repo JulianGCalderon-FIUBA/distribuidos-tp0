@@ -4,3 +4,4 @@
 # Executables
 bin/
 server/bets.csv
+client/.data/agency-*.csv
