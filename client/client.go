@@ -18,7 +18,9 @@ type clientConfig struct {
 
 type client struct {
 	config clientConfig
-	conn   net.Conn
+	conn   *net.TCPConn
+	reader *csv.Reader
+	writer *csv.Writer
 }
 
 func newClient(config clientConfig) *client {
@@ -28,19 +30,44 @@ func newClient(config clientConfig) *client {
 	return client
 }
 
-func (c *client) createClientSocket() {
-	conn, err := net.Dial("tcp", c.config.serverAddress)
+func (c *client) createClientSocket() error {
+	raddr, err := net.ResolveTCPAddr("tcp", c.config.serverAddress)
+	if err != nil {
+		return err
+	}
+
+	conn, err := net.DialTCP("tcp", nil, raddr)
+	if err != nil {
+		return err
+	}
+
+	c.conn = conn
+	c.reader = csv.NewReader(conn)
+	c.writer = csv.NewWriter(conn)
+
+	_ = c.writer.Write(common.Hello{AgencyId: c.config.id}.ToRecord())
+	c.writer.Flush()
+	err = c.writer.Error()
+	if err != nil {
+		return fmt.Errorf("failed to send ok: %w", err)
+	}
+
+	return nil
+}
+
+func (c *client) sendBets(ctx context.Context, bets []common.LocalBet) (err error) {
+	err = c.createClientSocket()
 	if err != nil {
 		log.Fatalf(common.FmtLog("action", "connect",
 			"result", "fail",
-			"client_id", c.config.id,
 			"error", err,
 		))
 	}
-	c.conn = conn
-}
+	defer func() {
+		closeErr := c.closeClientSocket()
+		err = errors.Join(err, closeErr)
+	}()
 
-func (c *client) sendBets(ctx context.Context, bets []common.LocalBet) error {
 	for len(bets) > 0 {
 		currentBatchEnd := min(len(bets), c.config.batchSize)
 
@@ -53,12 +80,6 @@ func (c *client) sendBets(ctx context.Context, bets []common.LocalBet) error {
 				"action", "send_batch",
 				"result", "fail",
 				"error", err,
-			))
-		} else {
-			log.Info(common.FmtLog(
-				"action", "send_batch",
-				"result", "success",
-				"batchSize", len(batch),
 			))
 		}
 
@@ -80,25 +101,17 @@ func (c *client) sendBets(ctx context.Context, bets []common.LocalBet) error {
 }
 
 func (c *client) sendBatch(bets []common.LocalBet) (err error) {
-	c.createClientSocket()
-	defer func() {
-		closeErr := c.closeClientSocket()
-		err = errors.Join(err, closeErr)
-	}()
-
-	writer := csv.NewWriter(c.conn)
-	_ = writer.Write(common.Hello{AgencyId: c.config.id, BatchSize: len(bets)}.ToRecord())
+	_ = c.writer.Write(common.Batch{BatchSize: len(bets)}.ToRecord())
 	for _, bet := range bets {
-		_ = writer.Write(bet.ToRecord())
+		_ = c.writer.Write(bet.ToRecord())
 	}
-	writer.Flush()
-	err = writer.Error()
+	c.writer.Flush()
+	err = c.writer.Error()
 	if err != nil {
 		return
 	}
 
-	reader := csv.NewReader(c.conn)
-	okRecord, err := reader.Read()
+	okRecord, err := c.reader.Read()
 	if err != nil {
 		return
 	}
@@ -106,6 +119,12 @@ func (c *client) sendBatch(bets []common.LocalBet) (err error) {
 	if err != nil {
 		return fmt.Errorf("server didn't send ok")
 	}
+
+	log.Info(common.FmtLog(
+		"action", "send_batch",
+		"result", "success",
+		"batchSize", len(bets),
+	))
 
 	return
 }
