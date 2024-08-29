@@ -50,3 +50,61 @@ Para asegurarme de que siempre se liberan los recursos, utilice la instruccion d
 > * Serialización de los datos.
 > * Correcta separación de responsabilidades entre modelo de dominio y capa de comunicación.
 > * Correcto empleo de sockets, incluyendo manejo de errores y evitando los fenómenos conocidos como [_short read y short write_](https://cs61.seas.harvard.edu/site/2018/FileDescriptors/).
+
+
+Antes de comenzar el ejercicio, migre el archivo de `utils` de Python a Go para poder usarlo. Mantuve la misma interfaz para no modificar el ejercicio. El mismo se encuentra en el modulo [server/lottery](server/lottery/lottery.go).
+
+Los datos de la apuesta se pueden especificar desde el archivo de configuracion:
+```yaml
+bet:
+  firstName: "laura"
+  lastName: "lopez"
+  document: 40000001
+  birthdate: "2001-05-01"
+  number: 1
+```
+Tambien se pueden especificar con variables de entorno:
+```bash
+export NOMBRE="laura"
+export APELLIDO="laura"
+export DOCUMENTO=40000001
+export NACIMIENTO="2001-05-01"
+export NUMERO=1
+```
+
+La mensajes intercambiados entre cliente-servidor tienen formato CSV. Este es simple y permite separar correctamente mensajes con saltos de linea (\n). Ademas, permite reutilizar codigo ya que ya era utilizado para la serializacion de apuestas en disco.
+
+El protocolo sigue la siguiente secuencia:
+1. **Client**: Se conecta al servidor
+1. **Client**: Envia un mensaje de HELLO con su ID
+1. **Cliente**: Envia su apuesta
+1. **Servidor**: Guarda la apuesta en disco
+1. **Servidor**: Envia un mensaje de confirmacion OK
+1. **Servidor**: Espera al siguiente cliente
+
+La logica de negocio se encuentra en:
+- [common/bet](common/bet.go): Contiene el tipo `LocalBet` y como serializarlo a un registro de CSV
+- [server/lottery](server/lottery/lottery.go): Contiene la logica de guardado de las apuestas a disco
+
+La logica de comunicacion para cada entidad se encuentra, respectivamente, en:
+- [server/server](server/server.go)
+- [client/client](client/client.go)
+- [common/protocol](common/protocol.go): Contiene los mensajes entre cliente-servidor, y como serializarlos
+
+Para evitar el fenomeno conocido como `short read` es necesario continuar haciendo lecturas hasta encontrar un salto de linea. Afortunadamente, la biblioteca de serializacion de CSV ya realiza esto (utilizando internamente un buffered reader). Para evitar un `short write` entonces es necesario verificar que se hayan escrito todos los bytes necesarios. Podemos asegurarnos de esto utilizando el metodo `Flush` de la biblioteca de serializacion de CSV.
+
+Para probar la correcta ejecucion del sistema, se puede ejecutar:
+```bash
+./generar-compose.sh docker-compose-dev.yaml 5
+make docker-compose-up
+```
+
+Luego, se puede observar el archivo CSV (aunque al tener el mismo archivo de configuracion, todos los registros son iguales))
+```bash
+> docker exec server cat bets.csv
+5,laura,lopez,40000001,2001-05-01,1
+1,laura,lopez,40000001,2001-05-01,1
+4,laura,lopez,40000001,2001-05-01,1
+3,laura,lopez,40000001,2001-05-01,1
+2,laura,lopez,40000001,2001-05-01,1
+```
