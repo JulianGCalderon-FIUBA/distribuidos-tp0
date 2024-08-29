@@ -17,10 +17,6 @@ type config struct {
 	Server struct {
 		Address string
 	}
-	Loop struct {
-		Amount int
-		Period time.Duration
-	}
 	Log struct {
 		Level string
 	}
@@ -60,8 +56,6 @@ func logConfig(c config) {
 	log.Infof(common.FmtLog("action", "config",
 		"result", "success",
 		"server.address", c.Server.Address,
-		"loop.amount", c.Loop.Amount,
-		"loop.period", c.Loop.Period,
 		"log.level", c.Log.Level,
 		"bet.firstName", c.Bet.FirstName,
 		"bet.lastName", c.Bet.LastName,
