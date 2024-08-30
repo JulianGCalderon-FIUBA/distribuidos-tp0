@@ -107,7 +107,7 @@ func (s *server) run(ctx context.Context) (err error) {
 }
 
 func (s *server) acceptConnection() error {
-	err := s.listener.SetDeadline(time.Now().Add(500 * time.Millisecond))
+	err := s.listener.SetDeadline(time.Now().Add(50 * time.Millisecond))
 	if err != nil {
 		return err
 	}
@@ -158,7 +158,7 @@ func (s *server) acceptConnection() error {
 }
 
 func (h handler) receiveBatch() (err error) {
-	err = h.conn.SetDeadline(time.Now().Add(500 * time.Millisecond))
+	err = h.conn.SetDeadline(time.Now().Add(50 * time.Millisecond))
 	if err != nil {
 		return
 	}
