@@ -160,4 +160,9 @@ Tambien podemos contar la cantidad de regitros guardados contando las lineas del
 >
 > El servidor deberá esperar la notificación de las 5 agencias para considerar que se realizó el sorteo e imprimir por log: `action: sorteo | result: success`. Luego de este evento, podrá verificar cada apuesta con las funciones `load_bets(...)` y `has_won(...)` y retornar los DNI de los ganadores de la agencia en cuestión. Antes del sorteo, no podrá responder consultas por la lista de ganadores. Las funciones `load_bets(...)` y `has_won(...)` son provistas por la cátedra y no podrán ser modificadas por el alumno.
 
-Hasta ahora, el protocolo usa una conexion nueva por cada interaccion. Los clientes vuelven a conectarse si quieren seguir enviando información. Ahora, es necesario mantener los sockets activos durante toda la ejecucion. Esto requirio un refactor grande del lado del servidor.
+Hasta ahora, el protocolo usa una conexion nueva por cada interaccion. Los clientes vuelven a conectarse si quieren seguir enviando información. Ahora, es necesario mantener los sockets activos durante toda la ejecucion. Esto requirió un refactor grande del lado del servidor.
+- El servidor mantiene un array de conexiones, una por cada agencia.
+    - Itera por cada conexion, resolviendo una peticion a la vez.
+    - Por cada ronda de peticiones, revisa si tiene una conexión entrante
+- Libera los recursos de las conexiones al finalizar todo
+- Se utilizan versiones no bloqueantes para las lecturas o para el listener, esto permite que el servidor no quede colgado en caso de que un cliente no haya enviado una peticion, o no haya ningun cliente en el backlog del listener.
