@@ -171,7 +171,7 @@ El protocolo sigue la siguiente secuencia:
 1. **Client**: Se conecta al servidor
 1. **Client**: Envia un mensaje de HELLO con su ID
    1. **Cliente**: Envia un mensaje de BATCH con la cantidad de apuestas a enviar
-   1. **Cliente**: Envia todas las apuestas del lote
+   1. **Cliente**: Envia todas las apuestas del lote, cada una a traves de un mensaje BET
    1. **Servidor**: Guarda todas las apuestas a disco
    1. **Servidor**: Envia un respuesta al cliente:
       - OK si se procesaron todas las apuestas correctamente
@@ -181,4 +181,4 @@ El protocolo sigue la siguiente secuencia:
 
 El servidor continua resolviendo peticiones concurrentemente hasta obtener un mensaje FINISH de cada cliente. Luego envia a cada agencia sus respectivos ganadores.
 
-Debido a que la actualizacion al protocolo introduce nuevos mensajes. Decidi invertir tiempo en refactorizar las estructuras usadas en la comunicacion en un nuevo paquete: [protocol](./protocol/protocol.go)
+Debido a que la actualizacion al protocolo introduce nuevos mensajes. Decidi invertir tiempo en refactorizar las estructuras usadas en la comunicacion en un nuevo paquete: [protocol](./protocol/protocol.go). Este paquete define las estructuras intercambiadas entre cliente-servidor, y como se serializan a `[]string`.
