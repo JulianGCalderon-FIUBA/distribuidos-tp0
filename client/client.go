@@ -50,7 +50,8 @@ func (c *client) createClientSocket() error {
 	c.writer.Flush()
 	err = c.writer.Error()
 	if err != nil {
-		return fmt.Errorf("failed to send ok: %w", err)
+		closeErr := c.closeClientSocket()
+		return errors.Join(err, closeErr)
 	}
 
 	return nil
