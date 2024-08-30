@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"time"
@@ -82,13 +83,19 @@ func (s *server) run(ctx context.Context) (err error) {
 			return
 		}
 
-		for agencyId, handler := range s.connections {
+		for agencyIndex, handler := range s.connections {
 			if handler.conn == nil {
 				continue
 			}
 
 			err := handler.receiveBatch()
 			if err != nil {
+				if errors.Is(err, io.EOF) {
+					_ = closeConnection(s.connections[agencyIndex].conn)
+					s.connections[agencyIndex].conn = nil
+				}
+
+				agencyId := agencyIndex + 1
 				log.Error(common.FmtLog("action", "apuesta_recibida",
 					"result", "fail",
 					"agency_id", agencyId,
