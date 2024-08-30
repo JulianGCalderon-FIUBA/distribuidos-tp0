@@ -180,3 +180,5 @@ El protocolo sigue la siguiente secuencia:
    1. **Cliente**: Una vez envio todas las apuetas, envia un mensaje FINISH
 
 El servidor continua resolviendo peticiones concurrentemente hasta obtener un mensaje FINISH de cada cliente. Luego envia a cada agencia sus respectivos ganadores.
+
+Debido a que la actualizacion al protocolo introduce nuevos mensajes. Decidi invertir tiempo en refactorizar las estructuras usadas en la comunicacion en un nuevo paquete: [protocol](./protocol/protocol.go)
