@@ -129,7 +129,9 @@ func (s *server) acceptConnection() error {
 	}
 	handler.agencyId = hello.AgencyId
 
-	if s.connections[hello.AgencyId].conn != nil {
+	agencyIndex := hello.AgencyId - 1
+
+	if s.connections[agencyIndex].conn != nil {
 		err := closeConnection(conn)
 		log.Error(common.FmtLog("action", "connect",
 			"result", "fail",
@@ -139,7 +141,7 @@ func (s *server) acceptConnection() error {
 
 		return err
 	}
-	s.connections[hello.AgencyId] = handler
+	s.connections[agencyIndex] = handler
 	log.Info(common.FmtLog("action", "connect",
 		"result", "success",
 		"agency_id", hello.AgencyId,
