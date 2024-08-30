@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
+	"github.com/juliangcalderon-fiuba/distribuidos-tp0/protocol"
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/server/lottery"
 )
 
@@ -124,18 +125,12 @@ func (s *server) acceptConnection() error {
 	}
 	handler.reader.FieldsPerRecord = -1
 
-	helloRecord, err := handler.reader.Read()
-	if err != nil {
-		closeErr := closeConnection(conn)
-		return errors.Join(err, closeErr)
-	}
-	hello, err := common.HelloFromRecord(helloRecord)
+	hello, err := protocol.Receive[protocol.HelloMessage](handler.reader)
 	if err != nil {
 		closeErr := closeConnection(conn)
 		return errors.Join(err, closeErr)
 	}
 	handler.agencyId = hello.AgencyId
-
 	agencyIndex := hello.AgencyId - 1
 
 	if s.connections[agencyIndex].conn != nil {
@@ -149,6 +144,7 @@ func (s *server) acceptConnection() error {
 		return err
 	}
 	s.connections[agencyIndex] = handler
+
 	log.Info(common.FmtLog("action", "connect",
 		"result", "success",
 		"agency_id", hello.AgencyId,
@@ -162,14 +158,13 @@ func (h handler) receiveBatch() (err error) {
 	if err != nil {
 		return
 	}
-
-	batchRecord, err := h.reader.Read()
+	batch, err := protocol.Receive[protocol.BatchMessage](h.reader)
 	if errors.Is(err, os.ErrDeadlineExceeded) {
 		err = nil
 		return
 	}
 	if err != nil {
-		return
+		return fmt.Errorf("failed to read batch message: %w", err)
 	}
 
 	err = h.conn.SetDeadline(time.Time{})
@@ -177,26 +172,21 @@ func (h handler) receiveBatch() (err error) {
 		return
 	}
 
-	batch, err := common.BatchFromRecord(batchRecord)
-	if err != nil {
-		return fmt.Errorf("failed to parse batch: %w", err)
-	}
-
 	bets := make([]lottery.Bet, 0, batch.BatchSize)
 
 	for i := 0; i < batch.BatchSize; i++ {
-		var localBetRecord []string
-		localBetRecord, err = h.reader.Read()
-		if err != nil {
-			return
-		}
-		localBet, err := common.LocalBetFromRecord(localBetRecord)
+		betMessage, err := protocol.Receive[protocol.BetMessage](h.reader)
 		if err != nil {
 			return fmt.Errorf("failed to parse bet: %w", err)
 		}
+
 		bet := lottery.Bet{
-			Agency:   h.agencyId,
-			LocalBet: localBet,
+			Agency:    h.agencyId,
+			FirstName: betMessage.FirstName,
+			LastName:  betMessage.LastName,
+			Document:  betMessage.Document,
+			Birthdate: betMessage.Birthdate,
+			Number:    betMessage.Number,
 		}
 
 		bets = append(bets, bet)
@@ -206,7 +196,7 @@ func (h handler) receiveBatch() (err error) {
 	if err != nil {
 		storeErr := fmt.Errorf("failed to store bets: %w", err)
 
-		_ = h.writer.Write(common.Err{}.ToRecord())
+		_ = protocol.Send(protocol.ErrMessage{}, h.writer)
 		h.writer.Flush()
 		sendErr := h.writer.Error()
 		if sendErr != nil {
@@ -216,7 +206,7 @@ func (h handler) receiveBatch() (err error) {
 		return errors.Join(storeErr, sendErr)
 	}
 
-	_ = h.writer.Write(common.Ok{}.ToRecord())
+	_ = protocol.Send(protocol.OkMessage{}, h.writer)
 	h.writer.Flush()
 	err = h.writer.Error()
 	if err != nil {

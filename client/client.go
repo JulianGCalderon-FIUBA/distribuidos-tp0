@@ -8,6 +8,7 @@ import (
 	"net"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
+	"github.com/juliangcalderon-fiuba/distribuidos-tp0/protocol"
 )
 
 type clientConfig struct {
@@ -45,7 +46,7 @@ func (c *client) createClientSocket() error {
 	c.reader = csv.NewReader(conn)
 	c.writer = csv.NewWriter(conn)
 
-	_ = c.writer.Write(common.Hello{AgencyId: c.config.id}.ToRecord())
+	_ = protocol.Send(protocol.HelloMessage{AgencyId: c.config.id}, c.writer)
 	c.writer.Flush()
 	err = c.writer.Error()
 	if err != nil {
@@ -55,7 +56,7 @@ func (c *client) createClientSocket() error {
 	return nil
 }
 
-func (c *client) sendBets(ctx context.Context, bets []common.LocalBet) (err error) {
+func (c *client) sendBets(ctx context.Context, bets []protocol.BetMessage) (err error) {
 	err = c.createClientSocket()
 	if err != nil {
 		log.Fatalf(common.FmtLog("action", "connect",
@@ -71,7 +72,7 @@ func (c *client) sendBets(ctx context.Context, bets []common.LocalBet) (err erro
 	for len(bets) > 0 {
 		currentBatchEnd := min(len(bets), c.config.batchSize)
 
-		var batch []common.LocalBet
+		var batch []protocol.BetMessage
 		bets, batch = bets[currentBatchEnd:], bets[:currentBatchEnd]
 
 		err := c.sendBatch(batch)
@@ -100,10 +101,11 @@ func (c *client) sendBets(ctx context.Context, bets []common.LocalBet) (err erro
 	return nil
 }
 
-func (c *client) sendBatch(bets []common.LocalBet) (err error) {
-	_ = c.writer.Write(common.Batch{BatchSize: len(bets)}.ToRecord())
+func (c *client) sendBatch(bets []protocol.BetMessage) (err error) {
+	_ = protocol.Send(protocol.BatchMessage{BatchSize: len(bets)}, c.writer)
 	for _, bet := range bets {
-		_ = c.writer.Write(bet.ToRecord())
+		_ = protocol.Send(bet, c.writer)
+
 	}
 	c.writer.Flush()
 	err = c.writer.Error()
@@ -111,11 +113,7 @@ func (c *client) sendBatch(bets []common.LocalBet) (err error) {
 		return
 	}
 
-	okRecord, err := c.reader.Read()
-	if err != nil {
-		return
-	}
-	_, err = common.OkFromRecord(okRecord)
+	_, err = protocol.Receive[protocol.OkMessage](c.reader)
 	if err != nil {
 		return fmt.Errorf("server didn't send ok")
 	}

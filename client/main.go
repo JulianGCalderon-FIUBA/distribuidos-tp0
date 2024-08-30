@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
+	"github.com/juliangcalderon-fiuba/distribuidos-tp0/protocol"
 	"github.com/mitchellh/mapstructure"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -93,7 +94,7 @@ func main() {
 	_ = client.sendBets(ctx, bets)
 }
 
-func readAgency(id int) (bets []common.LocalBet, err error) {
+func readAgency(id int) (bets []protocol.BetMessage, err error) {
 	agencyPath := fmt.Sprintf("./.data/agency-%v.csv", id)
 	file, err := os.Open(agencyPath)
 	if err != nil {
@@ -105,7 +106,7 @@ func readAgency(id int) (bets []common.LocalBet, err error) {
 	}()
 
 	reader := csv.NewReader(file)
-	bets = make([]common.LocalBet, 0)
+	bets = make([]protocol.BetMessage, 0)
 
 	for {
 		var row []string
@@ -118,14 +119,18 @@ func readAgency(id int) (bets []common.LocalBet, err error) {
 			return
 		}
 
-		var bet common.LocalBet
-		bet, err = common.LocalBetFromRecord(row)
+		row = append([]string{string(protocol.BetCode)}, row...)
+
+		var bet protocol.BetMessage
+		bet, err = protocol.Deserialize[protocol.BetMessage](row)
 		if err != nil {
 			return
 		}
 
 		bets = append(bets, bet)
 	}
+
+	fmt.Printf("%#v", bets)
 
 	return
 }

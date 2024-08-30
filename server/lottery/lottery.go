@@ -7,25 +7,32 @@ import (
 	"io"
 	"os"
 	"strconv"
-
-	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
+	"time"
 )
 
 const STORAGE_FILEPATH = "./bets.csv"
 
 type Bet struct {
-	Agency int
-	common.LocalBet
+	Agency    int
+	FirstName string
+	LastName  string
+	Document  int
+	Birthdate time.Time
+	Number    int
 }
 
-func (b Bet) ToRecord() []string {
-	return append(
-		[]string{strconv.Itoa(b.Agency)},
-		b.LocalBet.ToRecord()...,
-	)
+func (b Bet) Serialize() []string {
+	return []string{
+		strconv.Itoa(b.Agency),
+		b.FirstName,
+		b.LastName,
+		strconv.Itoa(b.Document),
+		b.Birthdate.Format(time.DateOnly),
+		strconv.Itoa(b.Number),
+	}
 }
 
-func BetFromRecord(record []string) (bet Bet, err error) {
+func BetDeserialize(record []string) (bet Bet, err error) {
 	if len(record) != 6 {
 		err = fmt.Errorf("record should contains 6 fields")
 		return
@@ -37,11 +44,26 @@ func BetFromRecord(record []string) (bet Bet, err error) {
 	}
 	bet.Agency = agency
 
-	localBet, err := common.LocalBetFromRecord(record[1:])
+	bet.FirstName = record[1]
+	bet.LastName = record[2]
+
+	document, err := strconv.Atoi(record[3])
 	if err != nil {
 		return
 	}
-	bet.LocalBet = localBet
+	bet.Document = document
+
+	birthdate, err := time.Parse(time.DateOnly, record[4])
+	if err != nil {
+		return
+	}
+	bet.Birthdate = birthdate
+
+	number, err := strconv.Atoi(record[5])
+	if err != nil {
+		return
+	}
+	bet.Number = number
 
 	return
 }
@@ -66,7 +88,7 @@ func StoreBetsIn(w io.Writer, bets []Bet) (err error) {
 	writer := csv.NewWriter(w)
 
 	for _, bet := range bets {
-		err = writer.Write(bet.ToRecord())
+		err = writer.Write(bet.Serialize())
 		if err != nil {
 			return
 		}
@@ -108,7 +130,7 @@ func LoadBetsFrom(r io.Reader) ([]Bet, error) {
 			return bets, err
 		}
 
-		bet, err := BetFromRecord(row)
+		bet, err := BetDeserialize(row)
 		if err != nil {
 			return bets, err
 		}
