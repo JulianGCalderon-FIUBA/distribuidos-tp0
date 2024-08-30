@@ -166,3 +166,17 @@ Hasta ahora, el protocolo usa una conexion nueva por cada interaccion. Los clien
     - Por cada ronda de peticiones, revisa si tiene una conexión entrante
 - Libera los recursos de las conexiones al finalizar todo
 - Se utilizan versiones no bloqueantes para las lecturas o para el listener, esto permite que el servidor no quede colgado en caso de que un cliente no haya enviado una peticion, o no haya ningun cliente en el backlog del listener.
+
+El protocolo sigue la siguiente secuencia:
+1. **Client**: Se conecta al servidor
+1. **Client**: Envia un mensaje de HELLO con su ID
+   1. **Cliente**: Envia un mensaje de BATCH con la cantidad de apuestas a enviar
+   1. **Cliente**: Envia todas las apuestas del lote
+   1. **Servidor**: Guarda todas las apuestas a disco
+   1. **Servidor**: Envia un respuesta al cliente:
+      - OK si se procesaron todas las apuestas correctamente
+      - ERR si se encontro algun error
+   1. **Cliente**: Repite hasta haber enviado todas las apuestas
+   1. **Cliente**: Una vez envio todas las apuetas, envia un mensaje FINISH
+
+El servidor continua resolviendo peticiones concurrentemente hasta obtener un mensaje FINISH de cada cliente. Luego envia a cada agencia sus respectivos ganadores.
