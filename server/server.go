@@ -88,19 +88,28 @@ func (s *server) run(ctx context.Context) (err error) {
 			if handler.conn == nil {
 				continue
 			}
+			agencyId := agencyIndex + 1
 
-			err := handler.receiveBatch()
+			batchSize, err := handler.receiveBatch()
 			if err != nil {
+				if errors.Is(err, os.ErrDeadlineExceeded) {
+					continue
+				}
 				if errors.Is(err, io.EOF) {
 					_ = closeConnection(s.connections[agencyIndex].conn)
 					s.connections[agencyIndex].conn = nil
 				}
 
-				agencyId := agencyIndex + 1
-				log.Error(common.FmtLog("action", "apuesta_recibida",
+				log.Error(common.FmtLog("action", "receive_batch",
 					"result", "fail",
 					"agency_id", agencyId,
 					"error", err,
+				))
+			} else {
+				log.Info(common.FmtLog("action", "receive_batch",
+					"result", "success",
+					"agency_id", agencyId,
+					"batch_size", batchSize,
 				))
 			}
 		}
@@ -153,23 +162,19 @@ func (s *server) acceptConnection() error {
 	return nil
 }
 
-func (h handler) receiveBatch() (err error) {
-	err = h.conn.SetDeadline(time.Now().Add(50 * time.Millisecond))
+func (h handler) receiveBatch() (int, error) {
+	err := h.conn.SetDeadline(time.Now().Add(50 * time.Millisecond))
 	if err != nil {
-		return
+		return 0, err
 	}
 	batch, err := protocol.Receive[protocol.BatchMessage](h.reader)
-	if errors.Is(err, os.ErrDeadlineExceeded) {
-		err = nil
-		return
-	}
 	if err != nil {
-		return fmt.Errorf("failed to read batch message: %w", err)
+		return 0, err
 	}
 
 	err = h.conn.SetDeadline(time.Time{})
 	if err != nil {
-		return
+		return 0, err
 	}
 
 	bets := make([]lottery.Bet, 0, batch.BatchSize)
@@ -177,7 +182,7 @@ func (h handler) receiveBatch() (err error) {
 	for i := 0; i < batch.BatchSize; i++ {
 		betMessage, err := protocol.Receive[protocol.BetMessage](h.reader)
 		if err != nil {
-			return fmt.Errorf("failed to parse bet: %w", err)
+			return 0, fmt.Errorf("failed to parse bet: %w", err)
 		}
 
 		bet := lottery.Bet{
@@ -196,30 +201,20 @@ func (h handler) receiveBatch() (err error) {
 	if err != nil {
 		storeErr := fmt.Errorf("failed to store bets: %w", err)
 
-		_ = protocol.Send(protocol.ErrMessage{}, h.writer)
-		h.writer.Flush()
-		sendErr := h.writer.Error()
+		sendErr := protocol.Send(protocol.ErrMessage{}, h.writer)
 		if sendErr != nil {
 			sendErr = fmt.Errorf("failed to send err message: %w", err)
 		}
 
-		return errors.Join(storeErr, sendErr)
+		return 0, errors.Join(storeErr, sendErr)
 	}
 
-	_ = protocol.Send(protocol.OkMessage{}, h.writer)
-	h.writer.Flush()
-	err = h.writer.Error()
+	err = protocol.Send(protocol.OkMessage{}, h.writer)
 	if err != nil {
-		return fmt.Errorf("failed to send ok: %w", err)
+		return 0, fmt.Errorf("failed to send ok: %w", err)
 	}
 
-	log.Info(common.FmtLog("action", "apuesta_recibida",
-		"result", "success",
-		"agency_id", h.agencyId,
-		"cantidad", batch.BatchSize,
-	))
-
-	return
+	return batch.BatchSize, nil
 }
 
 func closeConnection(conn net.Conn) error {

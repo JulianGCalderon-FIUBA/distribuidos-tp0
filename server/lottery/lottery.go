@@ -3,11 +3,11 @@ package lottery
 import (
 	"encoding/csv"
 	"errors"
-	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"time"
+
+	"github.com/juliangcalderon-fiuba/distribuidos-tp0/protocol"
 )
 
 const STORAGE_FILEPATH = "./bets.csv"
@@ -19,53 +19,6 @@ type Bet struct {
 	Document  int
 	Birthdate time.Time
 	Number    int
-}
-
-func (b Bet) Serialize() []string {
-	return []string{
-		strconv.Itoa(b.Agency),
-		b.FirstName,
-		b.LastName,
-		strconv.Itoa(b.Document),
-		b.Birthdate.Format(time.DateOnly),
-		strconv.Itoa(b.Number),
-	}
-}
-
-func BetDeserialize(record []string) (bet Bet, err error) {
-	if len(record) != 6 {
-		err = fmt.Errorf("record should contains 6 fields")
-		return
-	}
-
-	agency, err := strconv.Atoi(record[0])
-	if err != nil {
-		return
-	}
-	bet.Agency = agency
-
-	bet.FirstName = record[1]
-	bet.LastName = record[2]
-
-	document, err := strconv.Atoi(record[3])
-	if err != nil {
-		return
-	}
-	bet.Document = document
-
-	birthdate, err := time.Parse(time.DateOnly, record[4])
-	if err != nil {
-		return
-	}
-	bet.Birthdate = birthdate
-
-	number, err := strconv.Atoi(record[5])
-	if err != nil {
-		return
-	}
-	bet.Number = number
-
-	return
 }
 
 // Persist the information of each bet in the STORAGE_FILEPATH file.
@@ -88,7 +41,7 @@ func StoreBetsIn(w io.Writer, bets []Bet) (err error) {
 	writer := csv.NewWriter(w)
 
 	for _, bet := range bets {
-		err = writer.Write(bet.Serialize())
+		err = writer.Write(protocol.Serialize(bet))
 		if err != nil {
 			return
 		}
@@ -130,7 +83,7 @@ func LoadBetsFrom(r io.Reader) ([]Bet, error) {
 			return bets, err
 		}
 
-		bet, err := BetDeserialize(row)
+		bet, err := protocol.Deserialize[Bet](row)
 		if err != nil {
 			return bets, err
 		}

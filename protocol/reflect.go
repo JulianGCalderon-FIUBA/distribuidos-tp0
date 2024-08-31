@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func Serialize[M Message](m M) []string {
+func Serialize[M any](m M) []string {
 	v := reflect.ValueOf(m)
 
 	fields := reflect.VisibleFields(v.Type())
@@ -30,7 +30,7 @@ func Serialize[M Message](m M) []string {
 	return data
 }
 
-func Deserialize[M Message](record []string) (m M, err error) {
+func Deserialize[M any](record []string) (m M, err error) {
 	ty := reflect.TypeOf(m)
 
 	fields := reflect.VisibleFields(ty)
