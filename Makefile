@@ -42,4 +42,4 @@ docker-compose-logs:
 .PHONY: docker-compose-logs
 
 data:
-	unzip -u client/.data/dataset -d client/.data
+	unzip -o client/.data/dataset -d client/.data
