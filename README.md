@@ -162,23 +162,26 @@ Tambien podemos contar la cantidad de regitros guardados contando las lineas del
 
 Hasta ahora, el protocolo usa una conexion nueva por cada interaccion. Los clientes vuelven a conectarse si quieren seguir enviando información. Ahora, es necesario mantener los sockets activos durante toda la ejecucion. Esto requirió un refactor grande del lado del servidor.
 - El servidor mantiene un array de conexiones, una por cada agencia.
-    - Itera por cada conexion, resolviendo una peticion a la vez.
-    - Por cada ronda de peticiones, revisa si tiene una conexión entrante
-- Libera los recursos de las conexiones al finalizar todo
-- Se utilizan versiones no bloqueantes para las lecturas o para el listener, esto permite que el servidor no quede colgado en caso de que un cliente no haya enviado una peticion, o no haya ningun cliente en el backlog del listener.
+    - Itera por cada conexion, resolviendo una peticion a la vez. Si no hay ninguna peticion, continua a la siguiente conexion.
+    - Por cada ronda de peticiones, revisa si tiene una conexión entrante. Si no tiene ninguna conexion entrante, continua.
+
+   
+Debido a que la actualizacion al protocolo introduce nuevos mensajes. Tambien decidi invertir tiempo en refactorizar las estructuras usadas en la comunicacion en un nuevo paquete: [protocol](./protocol/protocol.go). Este paquete define las estructuras intercambiadas entre cliente-servidor, y como se serializan a `[]string`.
+
+El formato de los mensajes continua siendo un CSV, delimitados por saltos de linea. Un mensaje con forma `TIPO(Arg1, Arg2, ...)` se serializara como `TIPO,Arg1,Arg2,...\n`.
+
 
 El protocolo sigue la siguiente secuencia:
 1. **Client**: Se conecta al servidor
-1. **Client**: Envia un mensaje de HELLO con su ID
-   1. **Cliente**: Envia un mensaje de BATCH con la cantidad de apuestas a enviar
-   1. **Cliente**: Envia todas las apuestas del lote, cada una a traves de un mensaje BET
+1. **Client**: Envia un mensaje de `HELLO(AgencyId)`
+1. **Cliente**: Envia un mensaje de `BATCH(BatchSize)`
+   1. **Cliente**: Envia todas las apuestas del lote, cada una a traves de un mensaje `BET(FirstName, LastName, Document, Birthdate, Number)`
    1. **Servidor**: Guarda todas las apuestas a disco
    1. **Servidor**: Envia un respuesta al cliente:
-      - OK si se procesaron todas las apuestas correctamente
-      - ERR si se encontro algun error
-   1. **Cliente**: Repite hasta haber enviado todas las apuestas
-   1. **Cliente**: Una vez envio todas las apuetas, envia un mensaje FINISH
+      - `OK()` si se procesaron todas las apuestas correctamente
+      - `ERR()` si se encontro algun error
+1. **Cliente**: Repite el paso 3 hasta haber enviado todas las apuestas
+1. **Cliente**: Una vez envio todas las apuetas, envia un mensaje `FINISH()`
 
-El servidor continua resolviendo peticiones concurrentemente hasta obtener un mensaje FINISH de cada cliente. Luego envia a cada agencia sus respectivos ganadores.
+El servidor continua resolviendo peticiones concurrentemente hasta obtener un mensaje `FINISH` de cada cliente. Luego envia a cada agencia sus respectivos ganadores, a traves de un mensaje `WINNERS(todo!)`
 
-Debido a que la actualizacion al protocolo introduce nuevos mensajes. Decidi invertir tiempo en refactorizar las estructuras usadas en la comunicacion en un nuevo paquete: [protocol](./protocol/protocol.go). Este paquete define las estructuras intercambiadas entre cliente-servidor, y como se serializan a `[]string`.
