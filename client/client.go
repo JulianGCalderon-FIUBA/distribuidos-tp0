@@ -80,7 +80,7 @@ func (c *client) sendBets(ctx context.Context, bets []protocol.BetMessage) (err 
 			log.Info(common.FmtLog(
 				"action", "send_batch",
 				"result", "success",
-				"batchSize", len(bets),
+				"batchSize", len(batch),
 			))
 		}
 

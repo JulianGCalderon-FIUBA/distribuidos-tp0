@@ -22,7 +22,10 @@ type Message interface {
 }
 
 func Send(m Message, w *csv.Writer) error {
-	_ = w.Write(Serialize(m))
+	rawData := Serialize(m)
+	data := append([]string{string(m.Code())}, rawData...)
+
+	_ = w.Write(data)
 	w.Flush()
 	return w.Error()
 }
@@ -35,29 +38,35 @@ func ReceiveAny(r *csv.Reader) (m Message, err error) {
 
 	switch MessageCode(record[0]) {
 	case HelloCode:
-		return Deserialize[HelloMessage](record)
+		return Deserialize[HelloMessage](record[1:])
 	case BatchCode:
-		return Deserialize[BatchMessage](record)
+		return Deserialize[BatchMessage](record[1:])
 	case BetCode:
-		return Deserialize[BetMessage](record)
+		return Deserialize[BetMessage](record[1:])
 	case OkCode:
-		return Deserialize[OkMessage](record)
+		return Deserialize[OkMessage](record[1:])
 	case ErrCode:
-		return Deserialize[ErrMessage](record)
+		return Deserialize[ErrMessage](record[1:])
 	case FinishCode:
-		return Deserialize[FinishMessage](record)
+		return Deserialize[FinishMessage](record[1:])
 	default:
 		return m, fmt.Errorf("invalid MessageCode")
 	}
 }
 
-func Receive[M Message](r *csv.Reader) (m M, err error) {
+func Receive[M Message](r *csv.Reader) (M, error) {
+	var m M
+
 	record, err := r.Read()
 	if err != nil {
-		return
+		return m, err
 	}
 
-	return Deserialize[M](record)
+	if record[0] != string(m.Code()) {
+		return m, fmt.Errorf("expected code %v, got %v", m.Code(), record[0])
+	}
+
+	return Deserialize[M](record[1:])
 }
 
 type HelloMessage struct {

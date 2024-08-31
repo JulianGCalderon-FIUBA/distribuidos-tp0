@@ -119,9 +119,6 @@ func readAgency(id int) (bets []protocol.BetMessage, err error) {
 			return
 		}
 
-		// to avoid repeating code, I push the BetCode and reuse protocol deserialize.
-		row = append([]string{string(protocol.BetCode)}, row...)
-
 		var bet protocol.BetMessage
 		bet, err = protocol.Deserialize[protocol.BetMessage](row)
 		if err != nil {

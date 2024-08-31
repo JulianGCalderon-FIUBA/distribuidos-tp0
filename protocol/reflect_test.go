@@ -7,7 +7,7 @@ import (
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/protocol"
 )
 
-func TestStorage(t *testing.T) {
+func TestReflect(t *testing.T) {
 	messages := []protocol.Message{
 		protocol.HelloMessage{83},
 		protocol.BatchMessage{83},

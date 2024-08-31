@@ -10,12 +10,10 @@ import (
 func Serialize[M Message](m M) []string {
 	v := reflect.ValueOf(m)
 
-	length := v.NumField()
-	data := make([]string, 0, length+1)
-
-	data = append(data, string(m.Code()))
-
 	fields := reflect.VisibleFields(v.Type())
+	length := len(fields)
+	data := make([]string, 0, length)
+
 	for _, field := range fields {
 
 		value := v.FieldByName(field.Name).Interface()
@@ -35,7 +33,8 @@ func Serialize[M Message](m M) []string {
 func Deserialize[M Message](record []string) (m M, err error) {
 	ty := reflect.TypeOf(m)
 
-	expectedSize := ty.NumField() + 1
+	fields := reflect.VisibleFields(ty)
+	expectedSize := len(fields)
 	if len(record) != expectedSize {
 		err = fmt.Errorf("record should contains %v fields", expectedSize)
 		return
@@ -44,15 +43,12 @@ func Deserialize[M Message](record []string) (m M, err error) {
 	pointerToValue := reflect.ValueOf(&m)
 	value := pointerToValue.Elem()
 
-	fields := reflect.VisibleFields(ty)
 	for idx, field := range fields {
-		recordIdx := idx + 1
-
 		valueField := value.FieldByIndex(field.Index)
 
 		switch valueField.Interface().(type) {
 		case int:
-			valueToParse := record[recordIdx]
+			valueToParse := record[idx]
 			var valueToSet int
 			valueToSet, err = strconv.Atoi(valueToParse)
 			if err != nil {
@@ -62,10 +58,10 @@ func Deserialize[M Message](record []string) (m M, err error) {
 
 			valueField.SetInt(int64(valueToSet))
 		case string:
-			valueToSet := record[recordIdx]
+			valueToSet := record[idx]
 			valueField.SetString(valueToSet)
 		case time.Time:
-			valueToParse := record[recordIdx]
+			valueToParse := record[idx]
 			var valueToSet time.Time
 			valueToSet, err = time.Parse(time.DateOnly, valueToParse)
 			if err != nil {
