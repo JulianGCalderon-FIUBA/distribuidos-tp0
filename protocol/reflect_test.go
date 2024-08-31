@@ -8,7 +8,7 @@ import (
 )
 
 func TestReflect(t *testing.T) {
-	messages := []protocol.Message{
+	messages := []any{
 		protocol.HelloMessage{83},
 		protocol.BatchMessage{83},
 		protocol.BetMessage{
@@ -18,12 +18,13 @@ func TestReflect(t *testing.T) {
 			time.Date(2002, time.May, 16, 0, 0, 0, 0, time.UTC),
 			83,
 		},
+		protocol.OkMessage{},
 	}
 
 	for _, message := range messages {
 		serialized := protocol.Serialize(message)
 
-		var deserialized protocol.Message
+		var deserialized any
 		var err error
 
 		switch message.(type) {
@@ -33,6 +34,8 @@ func TestReflect(t *testing.T) {
 			deserialized, err = protocol.Deserialize[protocol.BatchMessage](serialized)
 		case protocol.BetMessage:
 			deserialized, err = protocol.Deserialize[protocol.BetMessage](serialized)
+		case protocol.OkMessage:
+			deserialized, err = protocol.Deserialize[protocol.OkMessage](serialized)
 		}
 
 		if err != nil {
