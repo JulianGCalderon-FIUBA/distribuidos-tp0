@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"fmt"
 	"log"
 	"reflect"
 	"strconv"
