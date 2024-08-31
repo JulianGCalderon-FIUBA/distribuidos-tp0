@@ -181,3 +181,6 @@ El protocolo sigue la siguiente secuencia:
 
 El servidor continua resolviendo peticiones concurrentemente hasta obtener un mensaje `FINISH` de cada cliente. Luego envia a cada agencia sus respectivos ganadores, a traves de un mensaje `WINNERS(todo!)`
 
+Para asegurar un graceful shutdown al recibir una señal de SIGTERM, entonces:
+- El cliente espera a terminar de enviar el batch actual, y luego finaliza.
+- El servidor espera a que todos los clientes hayan cerrado su conexion, y luego finaliza.
