@@ -131,7 +131,5 @@ func readAgency(id int) (bets []protocol.BetMessage, err error) {
 		bets = append(bets, bet)
 	}
 
-	fmt.Printf("%#v", bets)
-
 	return
 }
