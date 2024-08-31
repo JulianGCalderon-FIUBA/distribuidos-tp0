@@ -184,3 +184,8 @@ El servidor continua resolviendo peticiones concurrentemente hasta obtener un me
 Para asegurar un graceful shutdown al recibir una señal de SIGTERM, entonces:
 - El cliente espera a terminar de enviar el batch actual, y luego finaliza.
 - El servidor espera a que todos los clientes hayan cerrado su conexion, y luego finaliza.
+
+Para probar el correcto funcionamiento del sistema, cree el siguiente script de valiacion. Este asegura que el archivo de apuestas almacenado en el servidor sea el agregado del archivo de apuestas de cada agencias. Para que funcione correctamente, los clientes deben haber finalizado de enviar sus apuestas y el contenedor del servidor seguir activo.
+```
+./validar-sistema.sh
+```
