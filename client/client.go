@@ -70,12 +70,7 @@ func (c *client) sendBets(ctx context.Context, bets []protocol.BetMessage) (err 
 		err = errors.Join(err, closeErr)
 	}()
 
-	for len(bets) > 0 {
-		currentBatchEnd := min(len(bets), c.config.batchSize)
-
-		var batch []protocol.BetMessage
-		bets, batch = bets[currentBatchEnd:], bets[:currentBatchEnd]
-
+	for _, batch := range batchBets(bets, c.config.batchSize) {
 		err := c.sendBatch(batch)
 		if err != nil {
 			log.Error(common.FmtLog(
@@ -126,6 +121,22 @@ func (c *client) sendBatch(bets []protocol.BetMessage) (err error) {
 	))
 
 	return
+}
+
+// Creates an iterator of batches of `bets`, each with max `batchSize` elements
+func batchBets(bets []protocol.BetMessage, batchSize int) [][]protocol.BetMessage {
+	batches := make([][]protocol.BetMessage, 0)
+
+	for len(bets) > 0 {
+		currentBatchEnd := min(len(bets), batchSize)
+
+		var batch []protocol.BetMessage
+		bets, batch = bets[currentBatchEnd:], bets[:currentBatchEnd]
+
+		batches = append(batches, batch)
+	}
+
+	return batches
 }
 
 func (c *client) closeClientSocket() error {
