@@ -45,6 +45,7 @@ func (c *client) createClientSocket() error {
 	c.conn = conn
 	c.reader = csv.NewReader(conn)
 	c.writer = csv.NewWriter(conn)
+	c.reader.FieldsPerRecord = -1
 
 	err = protocol.Send(protocol.HelloMessage{AgencyId: c.config.id}, c.writer)
 	if err != nil {
@@ -94,9 +95,14 @@ func (c *client) sendBets(ctx context.Context, bets []protocol.BetMessage) (err 
 		}
 	}
 
-	log.Info(common.FmtLog(
-		"action", "finished",
-	))
+	err = c.sendFinish()
+	if err != nil {
+		log.Info(common.FmtLog(
+			"action", "finish",
+			"result", "fail",
+			"error", err,
+		))
+	}
 
 	return nil
 }
@@ -118,6 +124,26 @@ func (c *client) sendBatch(bets []protocol.BetMessage) error {
 	if err != nil {
 		return fmt.Errorf("server didn't send ok")
 	}
+
+	return nil
+}
+
+func (c *client) sendFinish() error {
+	err := protocol.Send(protocol.FinishMessage{}, c.writer)
+	if err != nil {
+		return err
+	}
+
+	winners, err := protocol.Receive[protocol.WinnersMessage](c.reader)
+	if err != nil {
+		return err
+	}
+
+	log.Info(common.FmtLog(
+		"action", "consulta_ganadores",
+		"result", "success",
+		"cant_ganadores", len(winners),
+	))
 
 	return nil
 }
