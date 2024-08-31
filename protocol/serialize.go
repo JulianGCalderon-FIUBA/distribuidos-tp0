@@ -24,8 +24,6 @@ func Serialize[M any](m M) []string {
 		log.Panicf("can't serialize type %v", ty)
 	}
 
-	fmt.Printf("%v", data)
-
 	return data
 }
 
