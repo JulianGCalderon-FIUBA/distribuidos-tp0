@@ -165,11 +165,7 @@ Hasta ahora, el protocolo usa una conexion nueva por cada interaccion. Los clien
     - Itera por cada conexion, resolviendo una peticion a la vez. Si no hay ninguna peticion, continua a la siguiente conexion.
     - Por cada ronda de peticiones, revisa si tiene una conexión entrante. Si no tiene ninguna conexion entrante, continua.
 
-   
-Debido a que la actualizacion al protocolo introduce nuevos mensajes. Tambien decidi invertir tiempo en refactorizar las estructuras usadas en la comunicacion en un nuevo paquete: [protocol](./protocol/protocol.go). Este paquete define las estructuras intercambiadas entre cliente-servidor, y como se serializan a `[]string`.
-
-El formato de los mensajes continua siendo un CSV, delimitados por saltos de linea. Un mensaje con forma `TIPO(Arg1, Arg2, ...)` se serializara como `TIPO,Arg1,Arg2,...\n`.
-
+Debido a que la actualizacion al protocolo introduce nuevos mensajes. Tambien decidi invertir tiempo en refactorizar las estructuras usadas en la comunicacion en un nuevo paquete: [protocol](./protocol/protocol.go). Este paquete define las estructuras intercambiadas entre cliente-servidor, y como se serializan a `[]string`. El formato de los mensajes continua siendo un CSV, delimitados por saltos de linea. Un mensaje con forma `TIPO(Arg1, Arg2, ...)` se serializara como `TIPO,Arg1,Arg2,...\n`.
 
 El protocolo sigue la siguiente secuencia:
 1. **Client**: Se conecta al servidor
