@@ -22,10 +22,11 @@ type server struct {
 }
 
 type handler struct {
-	agencyId int
-	conn     *net.TCPConn
-	reader   *csv.Reader
-	writer   *csv.Writer
+	agencyId  int
+	conn      *net.TCPConn
+	reader    *csv.Reader
+	writer    *csv.Writer
+	finalized bool
 }
 
 func newServer(port int, listenBacklog int) (*server, error) {
@@ -81,32 +82,21 @@ func (s *server) run(ctx context.Context) (err error) {
 			return
 		}
 
-		for agencyIndex, handler := range s.connections {
-			if handler.conn == nil {
+		for i := range s.connections {
+			handler := &s.connections[i]
+
+			if handler.conn == nil || handler.finalized {
 				continue
 			}
-			agencyId := agencyIndex + 1
+			s.handleClient(handler)
+		}
 
-			batchSize, err := handler.receiveBatch()
-			if errors.Is(err, os.ErrDeadlineExceeded) {
-				continue
-			}
-			if err != nil {
-				_ = closeConnection(s.connections[agencyIndex].conn)
-				s.connections[agencyIndex].conn = nil
-
-				log.Error(common.FmtLog("action", "receive_batch",
-					"result", "fail",
-					"agency_id", agencyId,
-					"error", err,
-				))
-			} else {
-				log.Info(common.FmtLog("action", "receive_batch",
-					"result", "success",
-					"agency_id", agencyId,
-					"batch_size", batchSize,
-				))
-			}
+		if s.hasFinalized() {
+			log.Info(common.FmtLog(
+				"action", "sorteo",
+				"result", "success",
+			))
+			return nil
 		}
 
 		if !s.hasConnection() {
@@ -119,6 +109,47 @@ func (s *server) run(ctx context.Context) (err error) {
 			default:
 			}
 		}
+	}
+}
+
+func (s *server) handleClient(h *handler) {
+	message, err := s.receiveRequest(h)
+	if err != nil {
+		s.closeHandler(h.agencyId)
+		log.Error(common.FmtLog("action", "receive_request",
+			"result", "fail",
+			"agency_id", h.agencyId,
+			"error", err,
+		))
+	}
+	if message == nil {
+		return
+	}
+
+	switch message := message.(type) {
+	case protocol.BatchMessage:
+		err = h.receiveBatch(message.BatchSize)
+		if err != nil {
+			s.closeHandler(h.agencyId)
+
+			log.Error(common.FmtLog("action", "receive_batch",
+				"result", "fail",
+				"agency_id", h.agencyId,
+				"error", err,
+			))
+		} else {
+			log.Info(common.FmtLog("action", "receive_batch",
+				"result", "success",
+				"agency_id", h.agencyId,
+				"batch_size", message.BatchSize,
+			))
+		}
+	case protocol.FinishMessage:
+		log.Info(common.FmtLog("action", "receive_finish",
+			"result", "success",
+			"agency_id", h.agencyId,
+		))
+		h.finalized = true
 	}
 }
 
@@ -168,27 +199,33 @@ func (s *server) acceptConnection() error {
 	return nil
 }
 
-func (h handler) receiveBatch() (int, error) {
+func (s *server) receiveRequest(h *handler) (protocol.Message, error) {
 	err := h.conn.SetDeadline(time.Now().Add(50 * time.Millisecond))
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	batch, err := protocol.Receive[protocol.BatchMessage](h.reader)
+	message, err := protocol.ReceiveAny(h.reader)
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		return nil, nil
+	}
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-
 	err = h.conn.SetDeadline(time.Time{})
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	bets := make([]lottery.Bet, 0, batch.BatchSize)
+	return message, nil
+}
 
-	for i := 0; i < batch.BatchSize; i++ {
+func (h handler) receiveBatch(batchSize int) error {
+	bets := make([]lottery.Bet, 0, batchSize)
+
+	for i := 0; i < batchSize; i++ {
 		betMessage, err := protocol.Receive[protocol.BetMessage](h.reader)
 		if err != nil {
-			return 0, fmt.Errorf("failed to parse bet: %w", err)
+			return fmt.Errorf("failed to parse bet: %w", err)
 		}
 
 		bet := lottery.Bet{
@@ -203,7 +240,7 @@ func (h handler) receiveBatch() (int, error) {
 		bets = append(bets, bet)
 	}
 
-	err = lottery.StoreBets(bets)
+	err := lottery.StoreBets(bets)
 	if err != nil {
 		storeErr := fmt.Errorf("failed to store bets: %w", err)
 
@@ -212,15 +249,15 @@ func (h handler) receiveBatch() (int, error) {
 			sendErr = fmt.Errorf("failed to send err message: %w", err)
 		}
 
-		return 0, errors.Join(storeErr, sendErr)
+		return errors.Join(storeErr, sendErr)
 	}
 
 	err = protocol.Send(protocol.OkMessage{}, h.writer)
 	if err != nil {
-		return 0, fmt.Errorf("failed to send ok: %w", err)
+		return fmt.Errorf("failed to send ok: %w", err)
 	}
 
-	return batch.BatchSize, nil
+	return nil
 }
 
 func (s *server) hasConnection() bool {
@@ -230,6 +267,20 @@ func (s *server) hasConnection() bool {
 		}
 	}
 	return false
+}
+
+func (s *server) hasFinalized() bool {
+	for _, h := range s.connections {
+		if !h.finalized {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *server) closeHandler(agencyId int) {
+	_ = closeConnection(s.connections[agencyId-1].conn)
+	s.connections[agencyId-1].conn = nil
 }
 
 func closeConnection(conn net.Conn) error {
