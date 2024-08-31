@@ -9,12 +9,13 @@ import (
 type MessageCode string
 
 const (
-	HelloCode  MessageCode = "HELLO"
-	BatchCode  MessageCode = "BATCH"
-	BetCode    MessageCode = "BET"
-	OkCode     MessageCode = "OK"
-	ErrCode    MessageCode = "ERR"
-	FinishCode MessageCode = "FINISH"
+	HelloCode   MessageCode = "HELLO"
+	BatchCode   MessageCode = "BATCH"
+	BetCode     MessageCode = "BET"
+	OkCode      MessageCode = "OK"
+	ErrCode     MessageCode = "ERR"
+	FinishCode  MessageCode = "FINISH"
+	WinnersCode MessageCode = "WINNERS"
 )
 
 type Message interface {
@@ -91,6 +92,8 @@ type ErrMessage struct{}
 
 type FinishMessage struct{}
 
+type WinnersMessage []int
+
 func (m BatchMessage) Code() MessageCode {
 	return BatchCode
 }
@@ -113,4 +116,8 @@ func (m ErrMessage) Code() MessageCode {
 
 func (m FinishMessage) Code() MessageCode {
 	return FinishCode
+}
+
+func (m WinnersMessage) Code() MessageCode {
+	return WinnersCode
 }

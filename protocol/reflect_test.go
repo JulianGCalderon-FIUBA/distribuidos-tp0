@@ -1,6 +1,7 @@
 package protocol_test
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -19,6 +20,8 @@ func TestReflect(t *testing.T) {
 			83,
 		},
 		protocol.OkMessage{},
+		protocol.WinnersMessage{1, 2, 3},
+		protocol.WinnersMessage{},
 	}
 
 	for _, message := range messages {
@@ -36,13 +39,15 @@ func TestReflect(t *testing.T) {
 			deserialized, err = protocol.Deserialize[protocol.BetMessage](serialized)
 		case protocol.OkMessage:
 			deserialized, err = protocol.Deserialize[protocol.OkMessage](serialized)
+		case protocol.WinnersMessage:
+			deserialized, err = protocol.Deserialize[protocol.WinnersMessage](serialized)
 		}
 
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
 
-		if deserialized != message {
+		if !reflect.DeepEqual(deserialized, message) {
 			t.Fatalf("%#v, %#v", deserialized, message)
 		}
 	}
