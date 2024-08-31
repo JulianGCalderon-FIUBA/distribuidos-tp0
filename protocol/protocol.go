@@ -22,7 +22,9 @@ type Message interface {
 }
 
 func Send(m Message, w *csv.Writer) error {
-	return w.Write(Serialize(m))
+	_ = w.Write(Serialize(m))
+	w.Flush()
+	return w.Error()
 }
 
 func ReceiveAny(r *csv.Reader) (m Message, err error) {

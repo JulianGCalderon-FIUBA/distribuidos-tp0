@@ -46,9 +46,7 @@ func (c *client) createClientSocket() error {
 	c.reader = csv.NewReader(conn)
 	c.writer = csv.NewWriter(conn)
 
-	_ = protocol.Send(protocol.HelloMessage{AgencyId: c.config.id}, c.writer)
-	c.writer.Flush()
-	err = c.writer.Error()
+	err = protocol.Send(protocol.HelloMessage{AgencyId: c.config.id}, c.writer)
 	if err != nil {
 		closeErr := c.closeClientSocket()
 		return errors.Join(err, closeErr)
@@ -78,6 +76,12 @@ func (c *client) sendBets(ctx context.Context, bets []protocol.BetMessage) (err 
 				"result", "fail",
 				"error", err,
 			))
+		} else {
+			log.Info(common.FmtLog(
+				"action", "send_batch",
+				"result", "success",
+				"batchSize", len(bets),
+			))
 		}
 
 		select {
@@ -97,16 +101,17 @@ func (c *client) sendBets(ctx context.Context, bets []protocol.BetMessage) (err 
 	return nil
 }
 
-func (c *client) sendBatch(bets []protocol.BetMessage) (err error) {
-	_ = protocol.Send(protocol.BatchMessage{BatchSize: len(bets)}, c.writer)
-	for _, bet := range bets {
-		_ = protocol.Send(bet, c.writer)
-
-	}
-	c.writer.Flush()
-	err = c.writer.Error()
+func (c *client) sendBatch(bets []protocol.BetMessage) error {
+	err := protocol.Send(protocol.BatchMessage{BatchSize: len(bets)}, c.writer)
 	if err != nil {
-		return
+		return err
+	}
+
+	for _, bet := range bets {
+		err := protocol.Send(bet, c.writer)
+		if err != nil {
+			return err
+		}
 	}
 
 	_, err = protocol.Receive[protocol.OkMessage](c.reader)
@@ -114,13 +119,7 @@ func (c *client) sendBatch(bets []protocol.BetMessage) (err error) {
 		return fmt.Errorf("server didn't send ok")
 	}
 
-	log.Info(common.FmtLog(
-		"action", "send_batch",
-		"result", "success",
-		"batchSize", len(bets),
-	))
-
-	return
+	return nil
 }
 
 // Creates an iterator of batches of `bets`, each with max `batchSize` elements
