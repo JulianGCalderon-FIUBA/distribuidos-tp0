@@ -5,7 +5,6 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"time"
@@ -48,8 +47,6 @@ func newServer(port int, listenBacklog int) (*server, error) {
 }
 
 func (s *server) run(ctx context.Context) (err error) {
-	_ = ctx
-
 	defer func() {
 		errs := make([]error, 0, len(s.connections)+2)
 		if err != nil {
@@ -91,14 +88,12 @@ func (s *server) run(ctx context.Context) (err error) {
 			agencyId := agencyIndex + 1
 
 			batchSize, err := handler.receiveBatch()
+			if errors.Is(err, os.ErrDeadlineExceeded) {
+				continue
+			}
 			if err != nil {
-				if errors.Is(err, os.ErrDeadlineExceeded) {
-					continue
-				}
-				if errors.Is(err, io.EOF) {
-					_ = closeConnection(s.connections[agencyIndex].conn)
-					s.connections[agencyIndex].conn = nil
-				}
+				_ = closeConnection(s.connections[agencyIndex].conn)
+				s.connections[agencyIndex].conn = nil
 
 				log.Error(common.FmtLog("action", "receive_batch",
 					"result", "fail",
@@ -111,6 +106,17 @@ func (s *server) run(ctx context.Context) (err error) {
 					"agency_id", agencyId,
 					"batch_size", batchSize,
 				))
+			}
+		}
+
+		if !s.hasConnection() {
+			select {
+			case <-ctx.Done():
+				log.Info(common.FmtLog(
+					"action", "shutdown",
+				))
+				return nil
+			default:
 			}
 		}
 	}
@@ -215,6 +221,15 @@ func (h handler) receiveBatch() (int, error) {
 	}
 
 	return batch.BatchSize, nil
+}
+
+func (s *server) hasConnection() bool {
+	for _, h := range s.connections {
+		if h.conn != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func closeConnection(conn net.Conn) error {
