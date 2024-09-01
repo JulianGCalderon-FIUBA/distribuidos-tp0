@@ -209,3 +209,8 @@ client4  | 2024-09-01 00:05:48 INFO     action: consulta_ganadores | result: suc
 > Modificar el servidor para que permita aceptar conexiones y procesar mensajes en paralelo. En este ejercicio es importante considerar los mecanismos de sincronización a utilizar para el correcto funcionamiento de la persistencia.
 
 Hasta ahora, el servidor fue single-threaded. Se utiliza un único hilo de ejecucion y operaciones no bloqueantes para permitir resolver peticiones de los clientes de forma concurrente. En este ejercicio, finalmente se hace uso de las gorutinas para hacer que el servidor procese mensajes en paralelo.
+
+El protocolo continua haciendo el mismo, lo unico que cambio fue el uso de las primitivas de sincronizacion:
+- Es necesario utilizar un `Mutex` para asegurar que solo una gorutina escribe en el archivo de apuestas al mismo tiempo.
+- Para asegurar que los ganadores se envien unicamente al final, se utiliza un `WaitGroup`.
+- Para asegurar que no finalice la ejecucion hasta que todos los hilos hayan terminado, entonces se utiliza otro `WaitGroup`.
