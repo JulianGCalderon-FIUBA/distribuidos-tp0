@@ -72,38 +72,48 @@ func (h *handler) run(ctx context.Context) (err error) {
 				"result", "success",
 				"agency_id", h.agencyId,
 			))
-
 			h.server.lotteryFinish.Done()
 
-			lotteryFinish := make(chan struct{})
-			go func() {
-				h.server.lotteryFinish.Wait()
-				lotteryFinish <- struct{}{}
-			}()
-
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-lotteryFinish:
-				if h.agencyId == 1 {
-					log.Info(common.FmtLog(
-						"action", "sorteo",
-						"result", "success",
-					))
-				}
-
-				winners, err := h.server.getWinners()
-				if err != nil {
-					return err
-				}
-
-				err = protocol.Send(protocol.WinnersMessage(winners[h.agencyId]), h.writer)
-				if err != nil {
-					return err
-				}
-				return nil
+			err := h.sendWinners(ctx)
+			if err != nil {
+				return err
 			}
 		}
+	}
+}
+
+func (h *handler) sendWinners(ctx context.Context) error {
+	lotteryFinish := make(chan struct{})
+	go func() {
+		h.server.lotteryFinish.Wait()
+		lotteryFinish <- struct{}{}
+	}()
+
+	select {
+	case <-ctx.Done():
+		log.Info(common.FmtLog(
+			"action", "shutdown_connection",
+			"agency_id", h.agencyId,
+		))
+		return nil
+	case <-lotteryFinish:
+		if h.agencyId == 1 {
+			log.Info(common.FmtLog(
+				"action", "sorteo",
+				"result", "success",
+			))
+		}
+
+		winners, err := h.server.getWinners()
+		if err != nil {
+			return err
+		}
+
+		err = protocol.Send(protocol.WinnersMessage(winners[h.agencyId]), h.writer)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 }
 

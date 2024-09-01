@@ -83,39 +83,51 @@ func (s *server) acceptClient(ctx context.Context) (*handler, error) {
 	for {
 		select {
 		case <-ctx.Done():
+			log.Info(common.FmtLog(
+				"action", "shutdown_listener",
+			))
 			return nil, nil
 		default:
 		}
 
-		err := s.listener.SetDeadline(time.Now().Add(500 * time.Millisecond))
+		h, err := s.tryAcceptClient()
 		if err != nil {
 			return nil, err
 		}
-
-		conn, err := s.listener.AcceptTCP()
-		if errors.Is(err, os.ErrDeadlineExceeded) {
-			continue
+		if h != nil {
+			return h, nil
 		}
-		if err != nil {
-			return nil, err
-		}
-
-		h, err := createHandler(s, conn)
-		if err != nil {
-			log.Error(common.FmtLog("action", "handshake",
-				"result", "fail",
-				"error", err,
-			))
-			continue
-		}
-
-		log.Error(common.FmtLog("action", "handshake",
-			"result", "success",
-			"agency_id", h.agencyId,
-		))
-
-		return h, nil
 	}
+}
+
+func (s *server) tryAcceptClient() (*handler, error) {
+	err := s.listener.SetDeadline(time.Now().Add(50 * time.Millisecond))
+	if err != nil {
+		return nil, err
+	}
+	conn, err := s.listener.AcceptTCP()
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	h, err := createHandler(s, conn)
+	if err != nil {
+		log.Error(common.FmtLog("action", "handshake",
+			"result", "fail",
+			"error", err,
+		))
+		return nil, nil
+	}
+
+	log.Error(common.FmtLog("action", "handshake",
+		"result", "success",
+		"agency_id", h.agencyId,
+	))
+
+	return h, nil
 }
 
 func closeListener(listener net.Listener) error {
