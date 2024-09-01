@@ -179,7 +179,7 @@ El protocolo sigue la siguiente secuencia:
 1. **Cliente**: Repite el paso 3 hasta haber enviado todas las apuestas
 1. **Cliente**: Una vez envio todas las apuetas, envia un mensaje `FINISH()`
 
-El servidor continua resolviendo peticiones concurrentemente hasta obtener un mensaje `FINISH` de cada cliente. Luego envia a cada agencia sus respectivos ganadores, a traves de un mensaje `WINNERS(todo!)`
+El servidor continua resolviendo peticiones concurrentemente hasta obtener un mensaje `FINISH` de cada cliente. Luego envia a cada agencia sus respectivos ganadores, a traves de un mensaje `WINNERS(Length, Document1, Document2, Document3, ...)`.
 
 Para asegurar un graceful shutdown al recibir una señal de SIGTERM, entonces:
 - El cliente espera a terminar de enviar el batch actual, y luego finaliza.
@@ -188,4 +188,17 @@ Para asegurar un graceful shutdown al recibir una señal de SIGTERM, entonces:
 Para probar el correcto funcionamiento del sistema, cree el siguiente script de valiacion. Este asegura que el archivo de apuestas almacenado en el servidor sea el agregado del archivo de apuestas de cada agencias. Para que funcione correctamente, los clientes deben haber finalizado de enviar sus apuestas y el contenedor del servidor seguir activo.
 ```
 ./validar-sistema.sh
+```
+
+Si ejecutamos el sistema, podemos observar que los ultimos mensajes corresponden a los ganadores:
+```bash
+> make docker-compose-up
+...
+...
+server   | 2024-09-01 00:05:47 INFO     action: sorteo | result: success
+client1  | 2024-09-01 00:05:48 INFO     action: consulta_ganadores | result: success | cant_ganadores: 2
+client3  | 2024-09-01 00:05:48 INFO     action: consulta_ganadores | result: success | cant_ganadores: 3
+client2  | 2024-09-01 00:05:48 INFO     action: consulta_ganadores | result: success | cant_ganadores: 3
+client5  | 2024-09-01 00:05:48 INFO     action: consulta_ganadores | result: success | cant_ganadores: 0
+client4  | 2024-09-01 00:05:48 INFO     action: consulta_ganadores | result: success | cant_ganadores: 2
 ```
