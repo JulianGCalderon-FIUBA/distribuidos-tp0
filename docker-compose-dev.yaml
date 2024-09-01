@@ -4,10 +4,8 @@ services:
     container_name: server
     image: server:latest
     entrypoint: /server
-    environment:
-      - LOGGING_LEVEL=DEBUG
     volumes:
-      - ${PWD}/server/config.ini:/config.ini
+      - /home/julian/projects/distribuidos-tp0/server/config.ini:/config.ini
     networks:
       - testing_net
 
@@ -17,9 +15,8 @@ services:
     entrypoint: /client
     environment:
       - CLI_ID=1
-      - CLI_LOG_LEVEL=DEBUG
     volumes:
-      - ${PWD}/client/config.yaml:/config.yaml
+      - /home/julian/projects/distribuidos-tp0/client/config.yaml:/config.yaml
     networks:
       - testing_net
     depends_on:
