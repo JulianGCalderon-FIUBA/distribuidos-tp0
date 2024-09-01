@@ -187,7 +187,8 @@ Para asegurar un graceful shutdown al recibir una señal de SIGTERM, entonces:
 
 Para probar el correcto funcionamiento del sistema, cree el siguiente script de valiacion. Este asegura que el archivo de apuestas almacenado en el servidor sea el agregado del archivo de apuestas de cada agencias. Para que funcione correctamente el script, los clientes deben haber finalizado de enviar sus apuestas y el contenedor del servidor seguir activo.
 ```
-./validar-sistema.sh
+> ./validar-sistema.sh
+OK
 ```
 
 Si ejecutamos el sistema, podemos observar que los ultimos mensajes corresponden a los ganadores:
