@@ -203,3 +203,7 @@ client2  | 2024-09-01 00:05:48 INFO     action: consulta_ganadores | result: suc
 client5  | 2024-09-01 00:05:48 INFO     action: consulta_ganadores | result: success | cant_ganadores: 0
 client4  | 2024-09-01 00:05:48 INFO     action: consulta_ganadores | result: success | cant_ganadores: 2
 ```
+
+## Ejercicio N°8:
+
+> Modificar el servidor para que permita aceptar conexiones y procesar mensajes en paralelo. En este ejercicio es importante considerar los mecanismos de sincronización a utilizar para el correcto funcionamiento de la persistencia.
