@@ -11,40 +11,33 @@ import (
 // Deserializes any value from a CSV record (list of strings)
 // It uses reflect package to access the desired value type in runtime
 func Deserialize[M any](record []string) (M, error) {
+	ty := reflect.TypeFor[M]()
 	var m M
 	var value reflect.Value
-	ty := reflect.TypeFor[M]()
+	var err error
 
 	switch ty.Kind() {
 	case reflect.Struct:
-		var err error
 		value, _, err = deserializeStruct(ty, record, 0)
-		if err != nil {
-			return m, err
-		}
-
 	case reflect.Slice:
-		var err error
 		value, _, err = deserializeSlice(ty, record, 0)
-		if err != nil {
-			return m, err
-		}
-
 	default:
-		log.Panicf("can't deserialize type %v", ty)
+		log.Panicf("unimplemented: deserialization of type %v", ty.Kind())
 	}
 
 	m = value.Interface().(M)
-	return m, nil
+	return m, err
 }
 
+// Deserializes record into a struct
+// Panics if `ty` is not a struct type
 func deserializeStruct(ty reflect.Type, record []string, cursor int) (reflect.Value, int, error) {
 	pValue := reflect.New(ty)
 	value := pValue.Elem()
 
 	fields := reflect.VisibleFields(ty)
 	for _, fieldTy := range fields {
-		valueField := value.FieldByIndex(fieldTy.Index)
+		field := value.FieldByIndex(fieldTy.Index)
 
 		var fieldValue reflect.Value
 		var err error
@@ -53,39 +46,36 @@ func deserializeStruct(ty reflect.Type, record []string, cursor int) (reflect.Va
 			return value, cursor, err
 		}
 
-		valueField.Set(fieldValue)
+		field.Set(fieldValue)
 	}
 
 	return value, cursor, nil
 }
 
+// Deserializes record into a slice
+// Panics if `ty` is not a slice type
 func deserializeSlice(ty reflect.Type, record []string, cursor int) (reflect.Value, int, error) {
 	var value reflect.Value
 
-	lenString, err := advance(record, cursor)
+	len, cursor, err := deserializeInt(record, cursor)
 	if err != nil {
 		return value, cursor, err
 	}
-	len, err := strconv.Atoi(lenString)
-	if err != nil {
-		return value, cursor, fmt.Errorf("field %v should be slice length", cursor)
-	}
-	cursor++
 
 	value = reflect.MakeSlice(ty, len, len)
 	elemTy := ty.Elem()
 
 	for elemIdx := 0; elemIdx < len; elemIdx++ {
-		sliceElem := value.Index(elemIdx)
+		elem := value.Index(elemIdx)
 
-		var sliceElemToSet reflect.Value
+		var elemValue reflect.Value
 		var err error
-		sliceElemToSet, cursor, err = deserializePrimitive(elemTy, record, cursor)
+		elemValue, cursor, err = deserializePrimitive(elemTy, record, cursor)
 		if err != nil {
 			return value, cursor, err
 		}
 
-		sliceElem.Set(sliceElemToSet)
+		elem.Set(elemValue)
 	}
 
 	return value, cursor, nil
@@ -97,16 +87,13 @@ func deserializePrimitive(ty reflect.Type, record []string, cursor int) (reflect
 
 	switch value.Interface().(type) {
 	case int:
-		valueToParse, err := advance(record, cursor)
+		var valueToSet int
+		var err error
+		valueToSet, cursor, err = deserializeInt(record, cursor)
 		if err != nil {
 			return value, cursor, err
 		}
-		valueToSet, err := strconv.Atoi(valueToParse)
-		if err != nil {
-			return value, cursor, fmt.Errorf("field %v should be an int", cursor)
-		}
 		value.SetInt(int64(valueToSet))
-		cursor++
 	case string:
 		valueToSet, err := advance(record, cursor)
 		if err != nil {
@@ -127,10 +114,23 @@ func deserializePrimitive(ty reflect.Type, record []string, cursor int) (reflect
 		cursor++
 
 	default:
-		log.Panicf("can't serialize type %v", ty)
+		log.Panicf("unimplemented: deserialization of type %v", ty)
 	}
 
 	return value, cursor, nil
+}
+
+func deserializeInt(record []string, cursor int) (int, int, error) {
+	var value int
+	valueToParse, err := advance(record, cursor)
+	if err != nil {
+		return value, cursor, err
+	}
+	value, err = strconv.Atoi(valueToParse)
+	if err != nil {
+		return value, cursor, fmt.Errorf("field %v should be an int", cursor)
+	}
+	return value, cursor + 1, nil
 }
 
 func advance(record []string, cursor int) (string, error) {

@@ -9,63 +9,62 @@ import (
 
 // Serializes any value into a CSV record (list of strings)
 // It uses reflect package to access the given value type in runtime
-func Serialize[M any](m M) []string {
-	v := reflect.ValueOf(m)
-	ty := reflect.TypeOf(m)
-	data := make([]string, 0)
+func Serialize(v any) []string {
+	value := reflect.ValueOf(v)
 
-	switch ty.Kind() {
+	switch value.Kind() {
 	case reflect.Struct:
-		data = append(data, serializeStruct(v)...)
+		return serializeStruct(value)
 	case reflect.Slice:
-		data = append(data, serializeSlice(v)...)
+		return serializeSlice(value)
 	default:
-		log.Panicf("can't serialize type %v", ty)
+		log.Panicf("unimplemented: serialization of type %v", value.Kind())
 	}
 
-	return data
+	return nil
 }
 
+// Serializes a struct value into a CSV record
+// Panics if `value` is not a struct
 func serializeStruct(value reflect.Value) []string {
-	ty := value.Type()
 	data := make([]string, 0)
 
-	fields := reflect.VisibleFields(ty)
+	fields := reflect.VisibleFields(value.Type())
 	for _, fieldTy := range fields {
-		field := value.FieldByName(fieldTy.Name)
+		field := value.FieldByIndex(fieldTy.Index)
 		data = append(data, serializePrimitive(field)...)
 	}
+
 	return data
 }
 
+// Serializes a slice value into a CSV record
+// Panics if `value` is not a slice
 func serializeSlice(value reflect.Value) []string {
-	data := make([]string, 0)
-
 	length := value.Len()
-	data = append(data, strconv.Itoa(length))
+	data := []string{strconv.Itoa(length)}
 
-	for elemIdx := 0; elemIdx < length; elemIdx++ {
-		elem := value.Index(elemIdx)
-		data = append(data, serializePrimitive(elem)...)
-	}
+	// range function syntax is not supported in gopls yet
+	value.Seq2()(func(_, element reflect.Value) bool {
+		data = append(data, serializePrimitive(element)...)
+		return true
+	})
 
 	return data
 }
 
+// Serializes a primitive value into a CSV record
 func serializePrimitive(value reflect.Value) []string {
-	ty := value.Type()
-	data := make([]string, 0)
-
 	switch concreteValue := value.Interface().(type) {
 	case int:
-		data = append(data, strconv.Itoa(concreteValue))
+		return []string{strconv.Itoa(concreteValue)}
 	case string:
-		data = append(data, concreteValue)
+		return []string{concreteValue}
 	case time.Time:
-		data = append(data, concreteValue.Format(time.DateOnly))
+		return []string{concreteValue.Format(time.DateOnly)}
 	default:
-		log.Panicf("can't serialize type %v", ty)
+		log.Panicf("unimplemented: serialization of type %v", value.Type())
 	}
 
-	return data
+	return nil
 }
