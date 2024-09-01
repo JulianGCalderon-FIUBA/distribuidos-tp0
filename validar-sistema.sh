@@ -13,4 +13,4 @@ clientData=$(mktemp)
 serverData=$(mktemp)
 docker exec server cat bets.csv | sort > "$serverData"
 
-diff "$clientData" "$serverData"
+cmp "$clientData" "$serverData" > /dev/null && echo "OK" || echo "ERROR"
