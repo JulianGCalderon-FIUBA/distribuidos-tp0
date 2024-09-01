@@ -119,14 +119,17 @@ func (s *server) run(ctx context.Context) (err error) {
 			return nil
 		}
 
-		select {
-		case <-ctx.Done():
-			log.Info(common.FmtLog(
-				"action", "shutdown",
-			))
-			return nil
-		default:
+		if !s.hasConnection() {
+			select {
+			case <-ctx.Done():
+				log.Info(common.FmtLog(
+					"action", "shutdown",
+				))
+				return nil
+			default:
+			}
 		}
+
 	}
 }
 
@@ -284,7 +287,7 @@ func (h *handler) sendWinners(winners []int) error {
 
 func (s *server) hasConnection() bool {
 	for _, h := range s.connections {
-		if h.conn != nil {
+		if h.conn != nil && !h.finalized {
 			return true
 		}
 	}

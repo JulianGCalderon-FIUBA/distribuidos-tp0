@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"time"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/protocol"
@@ -95,11 +97,21 @@ func (c *client) sendBets(ctx context.Context, bets []protocol.BetMessage) (err 
 		}
 	}
 
-	err = c.sendFinish()
+	err = protocol.Send(protocol.FinishMessage{}, c.writer)
 	if err != nil {
 		log.Info(common.FmtLog(
 			"action", "finish",
 			"result", "fail",
+			"error", err,
+		))
+		return err
+	}
+
+	err = c.receiveFinish(ctx)
+	if err != nil {
+		log.Info(common.FmtLog(
+			"action", "consulta_ganadores",
+			"result", "success",
 			"error", err,
 		))
 	}
@@ -128,22 +140,37 @@ func (c *client) sendBatch(bets []protocol.BetMessage) error {
 	return nil
 }
 
-func (c *client) sendFinish() error {
-	err := protocol.Send(protocol.FinishMessage{}, c.writer)
-	if err != nil {
-		return err
-	}
+func (c *client) receiveFinish(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info(common.FmtLog(
+				"action", "shutdown",
+			))
+			return nil
+		default:
+		}
 
-	winners, err := protocol.Receive[protocol.WinnersMessage](c.reader)
-	if err != nil {
-		return err
-	}
+		err := c.conn.SetDeadline(time.Now().Add(50 * time.Millisecond))
+		if err != nil {
+			return err
+		}
+		winners, err := protocol.Receive[protocol.WinnersMessage](c.reader)
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
 
-	log.Info(common.FmtLog(
-		"action", "consulta_ganadores",
-		"result", "success",
-		"cant_ganadores", len(winners),
-	))
+		log.Info(common.FmtLog(
+			"action", "consulta_ganadores",
+			"result", "success",
+			"cant_ganadores", len(winners),
+		))
+
+		break
+	}
 
 	return nil
 }
