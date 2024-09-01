@@ -1,6 +1,6 @@
 #!/bin/sh
 
-docker run --network tp0_testing_net -it alpine sh -c \
+docker run --network tp0_testing_net alpine sh -c \
 '
 echo ping > input
 nc server 12345 < input > output
