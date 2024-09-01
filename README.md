@@ -179,13 +179,13 @@ El protocolo sigue la siguiente secuencia:
 1. **Cliente**: Repite el paso 3 hasta haber enviado todas las apuestas
 1. **Cliente**: Una vez envio todas las apuetas, envia un mensaje `FINISH()`
 
-El servidor continua resolviendo peticiones concurrentemente hasta obtener un mensaje `FINISH` de cada cliente. Luego envia a cada agencia sus respectivos ganadores, a traves de un mensaje `WINNERS(Length, Document1, Document2, Document3, ...)`.
+El servidor continua resolviendo peticiones concurrentemente hasta obtener un mensaje `FINISH` de cada cliente. Luego envia a cada agencia sus respectivos ganadores, a traves de un mensaje `WINNERS(Length, Document1, Document2, Document3, ...)`. Debido a que la cantidad de documentos es variable, incluimos la cantidad de ganadores.
 
 Para asegurar un graceful shutdown al recibir una señal de SIGTERM, entonces:
 - El cliente espera a terminar de enviar el batch actual, y luego finaliza.
 - El servidor espera a que todos los clientes hayan cerrado su conexion, y luego finaliza.
 
-Para probar el correcto funcionamiento del sistema, cree el siguiente script de valiacion. Este asegura que el archivo de apuestas almacenado en el servidor sea el agregado del archivo de apuestas de cada agencias. Para que funcione correctamente, los clientes deben haber finalizado de enviar sus apuestas y el contenedor del servidor seguir activo.
+Para probar el correcto funcionamiento del sistema, cree el siguiente script de valiacion. Este asegura que el archivo de apuestas almacenado en el servidor sea el agregado del archivo de apuestas de cada agencias. Para que funcione correctamente el script, los clientes deben haber finalizado de enviar sus apuestas y el contenedor del servidor seguir activo.
 ```
 ./validar-sistema.sh
 ```
