@@ -96,24 +96,42 @@ func (s *server) run(ctx context.Context) (err error) {
 				"action", "sorteo",
 				"result", "success",
 			))
+
+			winners, err := getWinners()
+			if err != nil {
+				return err
+			}
+
+			for agencyIdx := range s.connections {
+				h := &s.connections[agencyIdx]
+
+				agencyWinners := winners[agencyIdx+1]
+				err := h.sendWinners(agencyWinners)
+				if err != nil {
+					log.Error(common.FmtLog(
+						"action", "send_winners",
+						"result", "fail",
+						"error", err,
+					))
+				}
+			}
+
 			return nil
 		}
 
-		if !s.hasConnection() {
-			select {
-			case <-ctx.Done():
-				log.Info(common.FmtLog(
-					"action", "shutdown",
-				))
-				return nil
-			default:
-			}
+		select {
+		case <-ctx.Done():
+			log.Info(common.FmtLog(
+				"action", "shutdown",
+			))
+			return nil
+		default:
 		}
 	}
 }
 
 func (s *server) handleClient(h *handler) {
-	message, err := s.receiveRequest(h)
+	message, err := h.receiveRequest()
 	if err != nil {
 		s.closeHandler(h.agencyId)
 		log.Error(common.FmtLog("action", "receive_request",
@@ -199,7 +217,7 @@ func (s *server) acceptConnection() error {
 	return nil
 }
 
-func (s *server) receiveRequest(h *handler) (protocol.Message, error) {
+func (h *handler) receiveRequest() (protocol.Message, error) {
 	err := h.conn.SetDeadline(time.Now().Add(50 * time.Millisecond))
 	if err != nil {
 		return nil, err
@@ -260,6 +278,10 @@ func (h handler) receiveBatch(batchSize int) error {
 	return nil
 }
 
+func (h *handler) sendWinners(winners []int) error {
+	return protocol.Send(protocol.WinnersMessage(winners), h.writer)
+}
+
 func (s *server) hasConnection() bool {
 	for _, h := range s.connections {
 		if h.conn != nil {
@@ -305,4 +327,21 @@ func closeListener(listener net.Listener) error {
 		return err
 	}
 	return nil
+}
+
+func getWinners() (map[int][]int, error) {
+	allBets, err := lottery.LoadBets()
+	if err != nil {
+		return nil, err
+	}
+
+	winners := make(map[int][]int)
+
+	for _, bet := range allBets {
+		if bet.HasWon() {
+			winners[bet.Agency] = append(winners[bet.Agency], bet.Document)
+		}
+	}
+
+	return winners, nil
 }

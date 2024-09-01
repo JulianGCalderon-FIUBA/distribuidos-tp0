@@ -11,6 +11,7 @@ import (
 )
 
 const STORAGE_FILEPATH = "./bets.csv"
+const LOTTERY_WINNER_NUMBER = 7574
 
 type Bet struct {
 	Agency    int
@@ -19,6 +20,10 @@ type Bet struct {
 	Document  int
 	Birthdate time.Time
 	Number    int
+}
+
+func (b Bet) HasWon() bool {
+	return b.Number == LOTTERY_WINNER_NUMBER
 }
 
 // Persist the information of each bet in the STORAGE_FILEPATH file.
