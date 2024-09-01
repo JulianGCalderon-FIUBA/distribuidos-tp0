@@ -52,7 +52,7 @@ func (s *server) run(ctx context.Context) (err error) {
 			select {
 			case <-ctx.Done():
 				// If the context finalizes, just return
-				log.Infof(common.FmtLog("action", "shutdown"))
+				log.Infof(common.FmtLog("action", "shutdown", "result", "success"))
 				return
 			default:
 			}

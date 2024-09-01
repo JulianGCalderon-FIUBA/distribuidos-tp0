@@ -54,7 +54,7 @@ func (c *client) startClientLoop(ctx context.Context) {
 
 		select {
 		case <-ctx.Done():
-			log.Infof(common.FmtLog("action", "shutdown"))
+			log.Infof(common.FmtLog("action", "shutdown", "result", "success"))
 			return
 
 		case <-sleep_timer:
