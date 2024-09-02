@@ -10,4 +10,5 @@ RUN CGO_ENABLED=0 go build -o bin/client ./client
 
 FROM busybox:latest
 COPY --from=builder /build/bin/client /client
+RUN touch ./config.yaml
 ENTRYPOINT ["/bin/sh"]

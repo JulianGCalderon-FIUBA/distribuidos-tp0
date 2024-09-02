@@ -4,10 +4,8 @@ services:
     container_name: server
     image: server:latest
     entrypoint: /server
-    environment:
-      - LOGGING_LEVEL=DEBUG
     volumes:
-      - ${PWD}/server/config.ini:/config.ini
+      - ./server/config.ini:/config.ini
     networks:
       - testing_net
 
@@ -17,10 +15,9 @@ services:
     entrypoint: /client
     environment:
       - CLI_ID=1
-      - CLI_LOG_LEVEL=DEBUG
     volumes:
-      - ${PWD}/client/config.yaml:/config.yaml
-      - ${PWD}/client/.data:/.data
+      - ./client/config.yaml:/config.yaml
+      - ./client/.data:/.data
     networks:
       - testing_net
     depends_on:
@@ -32,10 +29,9 @@ services:
     entrypoint: /client
     environment:
       - CLI_ID=2
-      - CLI_LOG_LEVEL=DEBUG
     volumes:
-      - ${PWD}/client/config.yaml:/config.yaml
-      - ${PWD}/client/.data:/.data
+      - ./client/config.yaml:/config.yaml
+      - ./client/.data:/.data
     networks:
       - testing_net
     depends_on:
@@ -47,10 +43,9 @@ services:
     entrypoint: /client
     environment:
       - CLI_ID=3
-      - CLI_LOG_LEVEL=DEBUG
     volumes:
-      - ${PWD}/client/config.yaml:/config.yaml
-      - ${PWD}/client/.data:/.data
+      - ./client/config.yaml:/config.yaml
+      - ./client/.data:/.data
     networks:
       - testing_net
     depends_on:
@@ -62,10 +57,9 @@ services:
     entrypoint: /client
     environment:
       - CLI_ID=4
-      - CLI_LOG_LEVEL=DEBUG
     volumes:
-      - ${PWD}/client/config.yaml:/config.yaml
-      - ${PWD}/client/.data:/.data
+      - ./client/config.yaml:/config.yaml
+      - ./client/.data:/.data
     networks:
       - testing_net
     depends_on:
@@ -77,10 +71,9 @@ services:
     entrypoint: /client
     environment:
       - CLI_ID=5
-      - CLI_LOG_LEVEL=DEBUG
     volumes:
-      - ${PWD}/client/config.yaml:/config.yaml
-      - ${PWD}/client/.data:/.data
+      - ./client/config.yaml:/config.yaml
+      - ./client/.data:/.data
     networks:
       - testing_net
     depends_on:
