@@ -83,8 +83,17 @@ func (s *server) run(ctx context.Context) (err error) {
 		}
 
 		for i := range s.connections {
-			handler := &s.connections[i]
+			select {
+			case <-ctx.Done():
+				log.Info(common.FmtLog(
+					"action", "shutdown",
+					"result", "success",
+				))
+				return nil
+			default:
+			}
 
+			handler := &s.connections[i]
 			if handler.conn == nil || handler.finalized {
 				continue
 			}
@@ -118,18 +127,6 @@ func (s *server) run(ctx context.Context) (err error) {
 
 			return nil
 		}
-
-		if !s.hasConnection() {
-			select {
-			case <-ctx.Done():
-				log.Info(common.FmtLog(
-					"action", "shutdown",
-				))
-				return nil
-			default:
-			}
-		}
-
 	}
 }
 
