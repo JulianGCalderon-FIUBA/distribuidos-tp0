@@ -72,7 +72,7 @@ func (c *client) sendBets(ctx context.Context, bets []protocol.BetMessage) (err 
 	}()
 
 	for _, batch := range batchBets(bets, c.config.batchSize) {
-		err := c.sendBatch(batch)
+		err := c.sendBatch(ctx, batch)
 		if err != nil {
 			log.Error(common.FmtLog(
 				"action", "send_batch",
@@ -91,6 +91,7 @@ func (c *client) sendBets(ctx context.Context, bets []protocol.BetMessage) (err 
 		case <-ctx.Done():
 			log.Info(common.FmtLog(
 				"action", "shutdown",
+				"result", "success",
 			))
 			return nil
 		default:
@@ -119,7 +120,7 @@ func (c *client) sendBets(ctx context.Context, bets []protocol.BetMessage) (err 
 	return nil
 }
 
-func (c *client) sendBatch(bets []protocol.BetMessage) error {
+func (c *client) sendBatch(ctx context.Context, bets []protocol.BetMessage) error {
 	err := protocol.Send(protocol.BatchMessage{BatchSize: len(bets)}, c.writer)
 	if err != nil {
 		return err
@@ -132,9 +133,30 @@ func (c *client) sendBatch(bets []protocol.BetMessage) error {
 		}
 	}
 
-	_, err = protocol.Receive[protocol.OkMessage](c.reader)
-	if err != nil {
-		return fmt.Errorf("server didn't send ok")
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("send interrupted by shutdown")
+		default:
+		}
+
+		err = c.conn.SetDeadline(time.Now().Add(50 * time.Millisecond))
+		if err != nil {
+			return err
+		}
+		_, recvErr := protocol.Receive[protocol.OkMessage](c.reader)
+		err = c.conn.SetDeadline(time.Now().Add(50 * time.Millisecond))
+		if err != nil {
+			return err
+		}
+		if errors.Is(recvErr, os.ErrDeadlineExceeded) {
+			continue
+		}
+		if recvErr != nil {
+			return fmt.Errorf("server didn't send ok")
+		}
+
+		break
 	}
 
 	return nil
@@ -146,6 +168,7 @@ func (c *client) receiveFinish(ctx context.Context) error {
 		case <-ctx.Done():
 			log.Info(common.FmtLog(
 				"action", "shutdown",
+				"result", "success",
 			))
 			return nil
 		default:

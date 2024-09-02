@@ -181,10 +181,6 @@ El protocolo sigue la siguiente secuencia:
 
 El servidor continua resolviendo peticiones concurrentemente hasta obtener un mensaje `FINISH` de cada cliente. Luego envia a cada agencia sus respectivos ganadores, a traves de un mensaje `WINNERS(Length, Document1, Document2, Document3, ...)`. Debido a que la cantidad de documentos es variable, incluimos la cantidad de ganadores.
 
-Para asegurar un graceful shutdown al recibir una señal de SIGTERM, entonces:
-- El cliente espera a terminar de enviar el batch actual, y luego finaliza.
-- El servidor espera a que todos los clientes hayan cerrado su conexion, y luego finaliza.
-
 Para probar el correcto funcionamiento del sistema, cree el siguiente script de valiacion. Este asegura que el archivo de apuestas almacenado en el servidor sea el agregado del archivo de apuestas de cada agencias. Se debe ejecutar una vez finalice el comando `make docker-compose-up`.
 ```
 > ./validar-sistema.sh
