@@ -5,7 +5,7 @@ services:
     image: server:latest
     entrypoint: /server
     volumes:
-      - /home/julian/projects/distribuidos-tp0/server/config.ini:/config.ini
+      - ./server/config.ini:/config.ini
     networks:
       - testing_net
 
@@ -16,7 +16,7 @@ services:
     environment:
       - CLI_ID=1
     volumes:
-      - /home/julian/projects/distribuidos-tp0/client/config.yaml:/config.yaml
+      - ./client/config.yaml:/config.yaml
     networks:
       - testing_net
     depends_on:
