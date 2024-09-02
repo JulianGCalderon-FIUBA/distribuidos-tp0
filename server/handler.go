@@ -45,6 +45,18 @@ func (h *handler) run(ctx context.Context) (err error) {
 	}()
 
 	for {
+
+		select {
+		case <-ctx.Done():
+			log.Info(common.FmtLog(
+				"action", "shutdown_connection",
+				"result", "success",
+				"agency_id", h.agencyId,
+			))
+			return nil
+		default:
+		}
+
 		var message protocol.Message
 		message, err := protocol.ReceiveAny(h.reader)
 		if err != nil {
@@ -93,6 +105,7 @@ func (h *handler) sendWinners(ctx context.Context) error {
 	case <-ctx.Done():
 		log.Info(common.FmtLog(
 			"action", "shutdown_connection",
+			"result", "success",
 			"agency_id", h.agencyId,
 		))
 		return nil

@@ -68,6 +68,9 @@ func (s *server) run(ctx context.Context) (err error) {
 			cancelHandlerCtx()
 			return err
 		}
+		if h == nil {
+			return nil
+		}
 
 		s.activeHandlers.Add(1)
 		go func(h *handler) {
@@ -85,6 +88,7 @@ func (s *server) acceptClient(ctx context.Context) (*handler, error) {
 		case <-ctx.Done():
 			log.Info(common.FmtLog(
 				"action", "shutdown_listener",
+				"result", "success",
 			))
 			return nil, nil
 		default:
