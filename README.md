@@ -2,6 +2,18 @@
 
 Solución al TP0 de la materia Sistemas Distribuidos. Cada ejercicio esta resuelto en su propia rama. Debajo de cada enunciado se encontrará información pertinente a la resolución de cada uno, en caso de que sea necesario.
 
+```bash
+> git ls-remote --refs -q | head -n -1 | awk -F"/|\t" '{printf "- %s: %s\n", $4, $1}'
+- ej1: dac8546cc3e418c5fac3583db57b4f90fb10d6df
+- ej2: 6b9f5c2c46bf02ac61074d9dfbe4b203fe929a79
+- ej3: 4ef16536aa3113e89566ee2d2a760f73359d6c8e
+- ej4: b5f968b44e189b936e67bb3f8892bc2226a7ea6f
+- ej5: 843cb85ccbdfa6199ba313633038a3878ff25bad
+- ej6: 06c48eee729531fccb55dfb2cd6a7a21e61447a4
+- ej7: 4e612af3333c9e309d9eb8e522c7c7cc84ed128d
+- ej8: 0dd030bc9dddb8a0d230e524bd4df3b944145912
+```
+
 ## Ejercicio N°1:
 
 >  Definir un script de bash `generar-compose.sh` que permita crear una definición de DockerCompose con una cantidad configurable de clientes.  El nombre de los containers deberá seguir el formato propuesto: client1, client2, client3, etc. El script deberá ubicarse en la raíz del proyecto y recibirá por parámetro el nombre del archivo de salida y la cantidad de clientes esperados:
