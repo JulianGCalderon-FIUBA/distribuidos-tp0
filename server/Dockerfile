@@ -10,4 +10,5 @@ RUN CGO_ENABLED=0 go build -o bin/server ./server
 
 FROM busybox:latest
 COPY --from=builder /build/bin/server /server
+RUN touch ./config.ini
 ENTRYPOINT ["/bin/sh"]
