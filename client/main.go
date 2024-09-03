@@ -30,6 +30,9 @@ type config struct {
 	Log struct {
 		Level string
 	}
+	Loop struct {
+		Period time.Duration
+	}
 	Batch struct {
 		MaxAmount int
 	}
@@ -60,6 +63,7 @@ func logConfig(c config) {
 		"server.address", c.Server.Address,
 		"batch.maxAmount", c.Batch.MaxAmount,
 		"log.level", c.Log.Level,
+		"loop.period", c.Loop.Period,
 	))
 }
 
@@ -85,6 +89,7 @@ func main() {
 		serverAddress: c.Server.Address,
 		batchSize:     c.Batch.MaxAmount,
 		id:            c.Id,
+		loopPeriod:    c.Loop.Period,
 	}
 	client := newClient(clientConfig)
 

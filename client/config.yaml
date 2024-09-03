@@ -3,5 +3,7 @@ server:
   address: "server:12345"
 log:
   level: "INFO"
+loop:
+  period: "0s"
 batch:
   maxAmount: 140
