@@ -29,8 +29,17 @@ func InitLogger(logLevel string) error {
 	return nil
 }
 
-func FmtLog(data ...any) string {
-	listed := make([]string, 0, len(data))
+func FmtLog(action string, err error, data ...any) string {
+	listed := make([]string, 0)
+
+	listed = append(listed, fmt.Sprintf("action: %v", action))
+	switch err {
+	case nil:
+		listed = append(listed, "result: success")
+	default:
+		listed = append(listed, "result: fail")
+		listed = append(listed, fmt.Sprintf("error: %v", err))
+	}
 
 	for len(data) >= 2 {
 		listed = append(listed, fmt.Sprintf("%v: %v", data[0], data[1]))

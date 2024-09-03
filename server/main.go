@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"net"
 	"os/signal"
 	"syscall"
 
@@ -39,8 +41,7 @@ func initConfig() (config, error) {
 }
 
 func logConfig(c config) {
-	log.Infof(common.FmtLog("action", "config",
-		"result", "success",
+	log.Infof(common.FmtLog("config", nil,
 		"server.ip", c.Default.Server_Ip,
 		"server.port", c.Default.Server_Port,
 		"server.listen_backlog", c.Default.Server_Listen_Backlog,
@@ -71,6 +72,8 @@ func main() {
 
 	err = s.run(ctx)
 	if err != nil {
-		log.Fatalf("failed to run server: %s", err)
+		if !errors.Is(err, net.ErrClosed) {
+			log.Fatalf("failed to run server: %s", err)
+		}
 	}
 }

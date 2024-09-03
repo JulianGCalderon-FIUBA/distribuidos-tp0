@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"sync"
-	"time"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/server/lottery"
@@ -16,7 +14,7 @@ import (
 const MAX_AGENCIES = 5
 
 type server struct {
-	listener       *net.TCPListener
+	listener       net.Listener
 	storageLock    *sync.Mutex
 	lotteryFinish  *sync.WaitGroup
 	activeHandlers *sync.WaitGroup
@@ -24,13 +22,8 @@ type server struct {
 
 func newServer(port int, listenBacklog int) (*server, error) {
 	_ = listenBacklog
-	address_string := fmt.Sprintf("0.0.0.0:%v", port)
-	address, err := net.ResolveTCPAddr("tcp", address_string)
-	if err != nil {
-		return nil, err
-	}
-
-	listener, err := net.ListenTCP("tcp", address)
+	address := fmt.Sprintf("0.0.0.0:%v", port)
+	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
 	}
@@ -47,8 +40,9 @@ func newServer(port int, listenBacklog int) (*server, error) {
 }
 
 func (s *server) run(ctx context.Context) (err error) {
+	listenerCloser := common.SpawnCloser(ctx, s.listener, closeListener)
 	defer func() {
-		closeErr := closeListener(s.listener)
+		closeErr := listenerCloser.Close()
 		err = errors.Join(err, closeErr)
 	}()
 
@@ -59,88 +53,53 @@ func (s *server) run(ctx context.Context) (err error) {
 	}()
 
 	for i := 0; i < MAX_AGENCIES; i++ {
-		h, err := s.acceptClient(ctx)
+		h, err := s.acceptClient()
 		if err != nil {
-			log.Critical(common.FmtLog("action", "accept",
-				"result", "fail",
-				"error", err,
-			))
 			cancelHandlerCtx()
 			return err
 		}
-		if h == nil {
-			return nil
+		if h != nil {
+			s.activeHandlers.Add(1)
+			go func(h *handler) {
+				err := h.run(handlerCtx)
+				if err != nil {
+					if !errors.Is(err, net.ErrClosed) {
+						log.Error(common.FmtLog("handle_client", err))
+					}
+				}
+				s.activeHandlers.Done()
+			}(h)
 		}
-
-		s.activeHandlers.Add(1)
-		go func(h *handler) {
-			_ = h.run(handlerCtx)
-			s.activeHandlers.Done()
-		}(h)
 	}
 
 	return nil
 }
 
-func (s *server) acceptClient(ctx context.Context) (*handler, error) {
+func (s *server) acceptClient() (*handler, error) {
 	for {
-		select {
-		case <-ctx.Done():
-			log.Info(common.FmtLog(
-				"action", "shutdown_listener",
-				"result", "success",
-			))
-			return nil, nil
-		default:
-		}
-
-		h, err := s.tryAcceptClient()
+		conn, err := s.listener.Accept()
 		if err != nil {
 			return nil, err
 		}
-		if h != nil {
-			return h, nil
+
+		h, err := createHandler(s, conn)
+		if err != nil {
+			log.Error(common.FmtLog("handshake", err))
+			continue
 		}
-	}
-}
 
-func (s *server) tryAcceptClient() (*handler, error) {
-	err := s.listener.SetDeadline(time.Now().Add(50 * time.Millisecond))
-	if err != nil {
-		return nil, err
-	}
-	conn, err := s.listener.AcceptTCP()
-	if errors.Is(err, os.ErrDeadlineExceeded) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	h, err := createHandler(s, conn)
-	if err != nil {
-		log.Error(common.FmtLog("action", "handshake",
-			"result", "fail",
-			"error", err,
+		log.Info(common.FmtLog("handshake", nil,
+			"agency_id", h.agencyId,
 		))
-		return nil, nil
+
+		return h, nil
 	}
-
-	log.Error(common.FmtLog("action", "handshake",
-		"result", "success",
-		"agency_id", h.agencyId,
-	))
-
-	return h, nil
 }
 
 func closeListener(listener net.Listener) error {
 	err := listener.Close()
 	if err != nil {
-		log.Error(common.FmtLog("action", "close_listener",
-			"result", "fail",
-			"error", err,
-		))
+		log.Error(common.FmtLog("close_listener", err))
 		return err
 	}
 	return nil

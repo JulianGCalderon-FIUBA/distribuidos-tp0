@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/csv"
 	"errors"
-	"fmt"
+	"io"
 	"net"
-	"os"
-	"time"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/protocol"
@@ -51,76 +49,56 @@ func (c *client) createClientSocket() error {
 
 	err = protocol.Send(protocol.HelloMessage{AgencyId: c.config.id}, c.writer)
 	if err != nil {
-		closeErr := c.closeClientSocket()
+		closeErr := closeSocket(c.conn)
 		return errors.Join(err, closeErr)
 	}
 
 	return nil
 }
 
-func (c *client) sendBets(ctx context.Context, bets []protocol.BetMessage) (err error) {
+func (c *client) run(ctx context.Context, bets []protocol.BetMessage) (err error) {
 	err = c.createClientSocket()
 	if err != nil {
-		log.Fatalf(common.FmtLog("action", "connect",
-			"result", "fail",
-			"error", err,
-		))
+		return err
 	}
+	closer := common.SpawnCloser(ctx, c.conn, closeSocket)
 	defer func() {
-		closeErr := c.closeClientSocket()
+		closeErr := closer.Close()
 		err = errors.Join(err, closeErr)
 	}()
 
 	for _, batch := range batchBets(bets, c.config.batchSize) {
-		err := c.sendBatch(ctx, batch)
+		err := c.sendBatch(batch)
 		if err != nil {
-			log.Error(common.FmtLog(
-				"action", "send_batch",
-				"result", "fail",
-				"error", err,
-			))
+			log.Error(common.FmtLog("send_batch", err))
+			if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
+				return err
+			}
 		} else {
-			log.Info(common.FmtLog(
-				"action", "send_batch",
-				"result", "success",
+			log.Info(common.FmtLog("send_batch", nil,
 				"batchSize", len(batch),
 			))
-		}
-
-		select {
-		case <-ctx.Done():
-			log.Info(common.FmtLog(
-				"action", "shutdown",
-				"result", "success",
-			))
-			return nil
-		default:
 		}
 	}
 
 	err = protocol.Send(protocol.FinishMessage{}, c.writer)
 	if err != nil {
-		log.Info(common.FmtLog(
-			"action", "finish",
-			"result", "fail",
-			"error", err,
-		))
 		return err
 	}
 
-	err = c.receiveFinish(ctx)
+	winners, err := protocol.Receive[protocol.WinnersMessage](c.reader)
 	if err != nil {
-		log.Info(common.FmtLog(
-			"action", "consulta_ganadores",
-			"result", "success",
-			"error", err,
+		return err
+	} else {
+		log.Info(common.FmtLog("consulta_ganadores", nil,
+			"cant_ganadores", len(winners),
 		))
 	}
 
 	return nil
 }
 
-func (c *client) sendBatch(ctx context.Context, bets []protocol.BetMessage) error {
+func (c *client) sendBatch(bets []protocol.BetMessage) error {
 	err := protocol.Send(protocol.BatchMessage{BatchSize: len(bets)}, c.writer)
 	if err != nil {
 		return err
@@ -133,66 +111,9 @@ func (c *client) sendBatch(ctx context.Context, bets []protocol.BetMessage) erro
 		}
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("send interrupted by shutdown")
-		default:
-		}
-
-		err = c.conn.SetDeadline(time.Now().Add(50 * time.Millisecond))
-		if err != nil {
-			return err
-		}
-		_, recvErr := protocol.Receive[protocol.OkMessage](c.reader)
-		err = c.conn.SetDeadline(time.Now().Add(50 * time.Millisecond))
-		if err != nil {
-			return err
-		}
-		if errors.Is(recvErr, os.ErrDeadlineExceeded) {
-			continue
-		}
-		if recvErr != nil {
-			return fmt.Errorf("server didn't send ok")
-		}
-
-		break
-	}
-
-	return nil
-}
-
-func (c *client) receiveFinish(ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			log.Info(common.FmtLog(
-				"action", "shutdown",
-				"result", "success",
-			))
-			return nil
-		default:
-		}
-
-		err := c.conn.SetDeadline(time.Now().Add(50 * time.Millisecond))
-		if err != nil {
-			return err
-		}
-		winners, err := protocol.Receive[protocol.WinnersMessage](c.reader)
-		if errors.Is(err, os.ErrDeadlineExceeded) {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-
-		log.Info(common.FmtLog(
-			"action", "consulta_ganadores",
-			"result", "success",
-			"cant_ganadores", len(winners),
-		))
-
-		break
+	_, err = protocol.Receive[protocol.OkMessage](c.reader)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -214,13 +135,10 @@ func batchBets(bets []protocol.BetMessage, batchSize int) [][]protocol.BetMessag
 	return batches
 }
 
-func (c *client) closeClientSocket() error {
-	err := c.conn.Close()
+func closeSocket(c *net.TCPConn) error {
+	err := c.Close()
 	if err != nil {
-		log.Error(common.FmtLog("action", "close_connection",
-			"result", "fail",
-			"error", err,
-		))
+		log.Error(common.FmtLog("close_connection", err))
 		return err
 	}
 	return nil

@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
@@ -14,13 +15,13 @@ import (
 
 type handler struct {
 	agencyId int
-	conn     *net.TCPConn
+	conn     net.Conn
 	reader   *csv.Reader
 	writer   *csv.Writer
 	server   *server
 }
 
-func createHandler(s *server, conn *net.TCPConn) (*handler, error) {
+func createHandler(s *server, conn net.Conn) (*handler, error) {
 	reader := csv.NewReader(conn)
 	reader.FieldsPerRecord = -1
 
@@ -39,24 +40,13 @@ func createHandler(s *server, conn *net.TCPConn) (*handler, error) {
 }
 
 func (h *handler) run(ctx context.Context) (err error) {
+	closer := common.SpawnCloser(ctx, h.conn, closeConnection)
 	defer func() {
-		closeErr := closeConnection(h.conn)
+		closeErr := closer.Close()
 		err = errors.Join(err, closeErr)
 	}()
 
 	for {
-
-		select {
-		case <-ctx.Done():
-			log.Info(common.FmtLog(
-				"action", "shutdown_connection",
-				"result", "success",
-				"agency_id", h.agencyId,
-			))
-			return nil
-		default:
-		}
-
 		var message protocol.Message
 		message, err := protocol.ReceiveAny(h.reader)
 		if err != nil {
@@ -67,29 +57,31 @@ func (h *handler) run(ctx context.Context) (err error) {
 		case protocol.BatchMessage:
 			err = h.receiveBatch(message.BatchSize)
 			if err != nil {
-				log.Error(common.FmtLog("action", "receive_batch",
-					"result", "fail",
+				log.Error(common.FmtLog("receive_batch", err,
 					"agency_id", h.agencyId,
-					"error", err,
 				))
+				if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
+					return err
+				}
 			} else {
-				log.Info(common.FmtLog("action", "receive_batch",
-					"result", "success",
+				log.Info(common.FmtLog("receive_batch", nil,
 					"agency_id", h.agencyId,
 					"batch_size", message.BatchSize,
 				))
 			}
 		case protocol.FinishMessage:
-			log.Info(common.FmtLog("action", "receive_finish",
-				"result", "success",
+			h.server.lotteryFinish.Done()
+
+			log.Info(common.FmtLog("receive_finish", nil,
 				"agency_id", h.agencyId,
 			))
-			h.server.lotteryFinish.Done()
 
 			err := h.sendWinners(ctx)
 			if err != nil {
 				return err
 			}
+
+			return nil
 		}
 	}
 }
@@ -103,18 +95,10 @@ func (h *handler) sendWinners(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		log.Info(common.FmtLog(
-			"action", "shutdown_connection",
-			"result", "success",
-			"agency_id", h.agencyId,
-		))
-		return nil
+		return net.ErrClosed
 	case <-lotteryFinish:
 		if h.agencyId == 1 {
-			log.Info(common.FmtLog(
-				"action", "sorteo",
-				"result", "success",
-			))
+			log.Info(common.FmtLog("sorteo", nil))
 		}
 
 		winners, err := h.server.getWinners()
@@ -126,6 +110,7 @@ func (h *handler) sendWinners(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+
 		return nil
 	}
 }
@@ -152,23 +137,17 @@ func (h *handler) receiveBatch(batchSize int) error {
 	}
 
 	h.server.storageLock.Lock()
-	err := lottery.StoreBets(bets)
+	storeErr := lottery.StoreBets(bets)
 	h.server.storageLock.Unlock()
-
-	if err != nil {
-		storeErr := fmt.Errorf("failed to store bets: %w", err)
-
+	if storeErr != nil {
+		storeErr = fmt.Errorf("failed to store bets: %w", storeErr)
 		sendErr := protocol.Send(protocol.ErrMessage{}, h.writer)
-		if sendErr != nil {
-			sendErr = fmt.Errorf("failed to send err message: %w", err)
-		}
-
 		return errors.Join(storeErr, sendErr)
 	}
 
-	err = protocol.Send(protocol.OkMessage{}, h.writer)
+	err := protocol.Send(protocol.OkMessage{}, h.writer)
 	if err != nil {
-		return fmt.Errorf("failed to send ok: %w", err)
+		return err
 	}
 
 	return nil
@@ -177,10 +156,7 @@ func (h *handler) receiveBatch(batchSize int) error {
 func closeConnection(conn net.Conn) error {
 	err := conn.Close()
 	if err != nil {
-		log.Error(common.FmtLog("action", "close_connection",
-			"result", "fail",
-			"error", err,
-		))
+		log.Error(common.FmtLog("close_connection", err))
 		return err
 	}
 	return nil
