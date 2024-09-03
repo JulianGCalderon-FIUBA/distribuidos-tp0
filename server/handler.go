@@ -14,13 +14,13 @@ import (
 
 type handler struct {
 	agencyId int
-	conn     *net.TCPConn
+	conn     net.Conn
 	reader   *csv.Reader
 	writer   *csv.Writer
 	server   *server
 }
 
-func createHandler(s *server, conn *net.TCPConn) (*handler, error) {
+func createHandler(s *server, conn net.Conn) (*handler, error) {
 	reader := csv.NewReader(conn)
 	reader.FieldsPerRecord = -1
 
@@ -39,24 +39,13 @@ func createHandler(s *server, conn *net.TCPConn) (*handler, error) {
 }
 
 func (h *handler) run(ctx context.Context) (err error) {
+	connCloser := common.SpawnCloser(ctx, h.conn, closeConnection)
 	defer func() {
-		closeErr := closeConnection(h.conn)
+		closeErr := connCloser.Close()
 		err = errors.Join(err, closeErr)
 	}()
 
 	for {
-
-		select {
-		case <-ctx.Done():
-			log.Info(common.FmtLog(
-				"action", "shutdown_connection",
-				"result", "success",
-				"agency_id", h.agencyId,
-			))
-			return nil
-		default:
-		}
-
 		var message protocol.Message
 		message, err := protocol.ReceiveAny(h.reader)
 		if err != nil {
@@ -90,6 +79,8 @@ func (h *handler) run(ctx context.Context) (err error) {
 			if err != nil {
 				return err
 			}
+
+			return nil
 		}
 	}
 }
@@ -103,11 +94,6 @@ func (h *handler) sendWinners(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		log.Info(common.FmtLog(
-			"action", "shutdown_connection",
-			"result", "success",
-			"agency_id", h.agencyId,
-		))
 		return nil
 	case <-lotteryFinish:
 		if h.agencyId == 1 {
@@ -126,6 +112,7 @@ func (h *handler) sendWinners(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+
 		return nil
 	}
 }
@@ -152,23 +139,17 @@ func (h *handler) receiveBatch(batchSize int) error {
 	}
 
 	h.server.storageLock.Lock()
-	err := lottery.StoreBets(bets)
+	storeErr := lottery.StoreBets(bets)
 	h.server.storageLock.Unlock()
-
-	if err != nil {
-		storeErr := fmt.Errorf("failed to store bets: %w", err)
-
+	if storeErr != nil {
+		storeErr = fmt.Errorf("failed to store bets: %w", storeErr)
 		sendErr := protocol.Send(protocol.ErrMessage{}, h.writer)
-		if sendErr != nil {
-			sendErr = fmt.Errorf("failed to send err message: %w", err)
-		}
-
 		return errors.Join(storeErr, sendErr)
 	}
 
-	err = protocol.Send(protocol.OkMessage{}, h.writer)
+	err := protocol.Send(protocol.OkMessage{}, h.writer)
 	if err != nil {
-		return fmt.Errorf("failed to send ok: %w", err)
+		return err
 	}
 
 	return nil
