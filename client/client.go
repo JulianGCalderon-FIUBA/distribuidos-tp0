@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"time"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/protocol"
@@ -15,6 +16,7 @@ type clientConfig struct {
 	id            int
 	batchSize     int
 	serverAddress string
+	loopPeriod    time.Duration
 }
 
 type client struct {
@@ -78,6 +80,12 @@ func (c *client) run(ctx context.Context, bets []protocol.BetMessage) (err error
 			log.Info(common.FmtLog("send_batch", nil,
 				"batchSize", len(batch),
 			))
+		}
+
+		select {
+		case <-ctx.Done():
+			return net.ErrClosed
+		case <-time.After(c.config.loopPeriod):
 		}
 	}
 
