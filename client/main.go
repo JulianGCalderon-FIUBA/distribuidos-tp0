@@ -91,7 +91,10 @@ func main() {
 	ctx, ctx_cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM)
 	defer ctx_cancel()
 
-	_ = client.sendBets(ctx, bets)
+	err = client.sendBets(ctx, bets)
+	if err != nil {
+		log.Fatalf("failed to run client: %s", err)
+	}
 }
 
 func readAgency(id int) (bets []protocol.BetMessage, err error) {
