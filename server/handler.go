@@ -72,6 +72,10 @@ func (h *handler) run(ctx context.Context) (err error) {
 		case protocol.FinishMessage:
 			h.server.lotteryFinish.Done()
 
+			log.Info(common.FmtLog("receive_finish", nil,
+				"agency_id", h.agencyId,
+			))
+
 			err := h.sendWinners(ctx)
 			if err != nil {
 				return err
