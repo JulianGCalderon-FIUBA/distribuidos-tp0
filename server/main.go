@@ -41,8 +41,7 @@ func initConfig() (config, error) {
 }
 
 func logConfig(c config) {
-	log.Infof(common.FmtLog("action", "config",
-		"result", "success",
+	log.Infof(common.FmtLog("config", nil,
 		"server.ip", c.Default.Server_Ip,
 		"server.port", c.Default.Server_Port,
 		"server.listen_backlog", c.Default.Server_Listen_Backlog,

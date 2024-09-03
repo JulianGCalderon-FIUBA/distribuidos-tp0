@@ -70,18 +70,12 @@ func (c *client) run(ctx context.Context, bets []protocol.BetMessage) (err error
 	for _, batch := range batchBets(bets, c.config.batchSize) {
 		err := c.sendBatch(batch)
 		if err != nil {
-			log.Error(common.FmtLog(
-				"action", "send_batch",
-				"result", "fail",
-				"error", err,
-			))
+			log.Error(common.FmtLog("send_batch", err))
 			if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
 				return err
 			}
 		} else {
-			log.Info(common.FmtLog(
-				"action", "send_batch",
-				"result", "success",
+			log.Info(common.FmtLog("send_batch", nil,
 				"batchSize", len(batch),
 			))
 		}
@@ -96,9 +90,7 @@ func (c *client) run(ctx context.Context, bets []protocol.BetMessage) (err error
 	if err != nil {
 		return err
 	} else {
-		log.Info(common.FmtLog(
-			"action", "consulta_ganadores",
-			"result", "success",
+		log.Info(common.FmtLog("consulta_ganadores", nil,
 			"cant_ganadores", len(winners),
 		))
 	}
@@ -146,10 +138,7 @@ func batchBets(bets []protocol.BetMessage, batchSize int) [][]protocol.BetMessag
 func closeSocket(c *net.TCPConn) error {
 	err := c.Close()
 	if err != nil {
-		log.Error(common.FmtLog("action", "close_connection",
-			"result", "fail",
-			"error", err,
-		))
+		log.Error(common.FmtLog("close_connection", err))
 		return err
 	}
 	return nil

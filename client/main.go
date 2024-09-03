@@ -56,8 +56,7 @@ func initConfig() (config, error) {
 }
 
 func logConfig(c config) {
-	log.Infof(common.FmtLog("action", "config",
-		"result", "success",
+	log.Infof(common.FmtLog("config", nil,
 		"server.address", c.Server.Address,
 		"batch.maxAmount", c.Batch.MaxAmount,
 		"log.level", c.Log.Level,

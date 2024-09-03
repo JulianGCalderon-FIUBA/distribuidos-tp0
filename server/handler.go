@@ -57,17 +57,14 @@ func (h *handler) run(ctx context.Context) (err error) {
 		case protocol.BatchMessage:
 			err = h.receiveBatch(message.BatchSize)
 			if err != nil {
-				log.Error(common.FmtLog("action", "receive_batch",
-					"result", "fail",
+				log.Error(common.FmtLog("receive_batch", err,
 					"agency_id", h.agencyId,
-					"error", err,
 				))
 				if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
 					return err
 				}
 			} else {
-				log.Info(common.FmtLog("action", "receive_batch",
-					"result", "success",
+				log.Info(common.FmtLog("receive_batch", nil,
 					"agency_id", h.agencyId,
 					"batch_size", message.BatchSize,
 				))
@@ -97,10 +94,7 @@ func (h *handler) sendWinners(ctx context.Context) error {
 		return net.ErrClosed
 	case <-lotteryFinish:
 		if h.agencyId == 1 {
-			log.Info(common.FmtLog(
-				"action", "sorteo",
-				"result", "success",
-			))
+			log.Info(common.FmtLog("sorteo", nil))
 		}
 
 		winners, err := h.server.getWinners()
@@ -158,10 +152,7 @@ func (h *handler) receiveBatch(batchSize int) error {
 func closeConnection(conn net.Conn) error {
 	err := conn.Close()
 	if err != nil {
-		log.Error(common.FmtLog("action", "close_connection",
-			"result", "fail",
-			"error", err,
-		))
+		log.Error(common.FmtLog("close_connection", err))
 		return err
 	}
 	return nil

@@ -64,10 +64,7 @@ func (s *server) run(ctx context.Context) (err error) {
 				err := h.run(handlerCtx)
 				if err != nil {
 					if !errors.Is(err, net.ErrClosed) {
-						log.Error(common.FmtLog("action", "handle_client",
-							"result", "fail",
-							"error", err,
-						))
+						log.Error(common.FmtLog("handle_client", err))
 					}
 				}
 				s.activeHandlers.Done()
@@ -87,15 +84,11 @@ func (s *server) acceptClient() (*handler, error) {
 
 		h, err := createHandler(s, conn)
 		if err != nil {
-			log.Error(common.FmtLog("action", "handshake",
-				"result", "fail",
-				"error", err,
-			))
+			log.Error(common.FmtLog("handshake", err))
 			continue
 		}
 
-		log.Error(common.FmtLog("action", "handshake",
-			"result", "success",
+		log.Info(common.FmtLog("handshake", nil,
 			"agency_id", h.agencyId,
 		))
 
@@ -106,10 +99,7 @@ func (s *server) acceptClient() (*handler, error) {
 func closeListener(listener net.Listener) error {
 	err := listener.Close()
 	if err != nil {
-		log.Error(common.FmtLog("action", "close_listener",
-			"result", "fail",
-			"error", err,
-		))
+		log.Error(common.FmtLog("close_listener", err))
 		return err
 	}
 	return nil
