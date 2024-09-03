@@ -56,14 +56,6 @@ func (s *server) run(ctx context.Context) (err error) {
 		h, err := s.acceptClient()
 		if err != nil {
 			cancelHandlerCtx()
-			if errors.Is(err, net.ErrClosed) {
-				return nil
-			}
-
-			log.Error(common.FmtLog("action", "accept",
-				"result", "fail",
-				"error", err,
-			))
 			return err
 		}
 		if h != nil {
@@ -71,10 +63,12 @@ func (s *server) run(ctx context.Context) (err error) {
 			go func(h *handler) {
 				err := h.run(handlerCtx)
 				if err != nil {
-					log.Error(common.FmtLog("action", "handle_client",
-						"result", "fail",
-						"error", err,
-					))
+					if !errors.Is(err, net.ErrClosed) {
+						log.Error(common.FmtLog("action", "handle_client",
+							"result", "fail",
+							"error", err,
+						))
+					}
 				}
 				s.activeHandlers.Done()
 			}(h)

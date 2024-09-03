@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
@@ -39,9 +40,9 @@ func createHandler(s *server, conn net.Conn) (*handler, error) {
 }
 
 func (h *handler) run(ctx context.Context) (err error) {
-	connCloser := common.SpawnCloser(ctx, h.conn, closeConnection)
+	closer := common.SpawnCloser(ctx, h.conn, closeConnection)
 	defer func() {
-		closeErr := connCloser.Close()
+		closeErr := closer.Close()
 		err = errors.Join(err, closeErr)
 	}()
 
@@ -61,6 +62,9 @@ func (h *handler) run(ctx context.Context) (err error) {
 					"agency_id", h.agencyId,
 					"error", err,
 				))
+				if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
+					return err
+				}
 			} else {
 				log.Info(common.FmtLog("action", "receive_batch",
 					"result", "success",
@@ -69,10 +73,6 @@ func (h *handler) run(ctx context.Context) (err error) {
 				))
 			}
 		case protocol.FinishMessage:
-			log.Info(common.FmtLog("action", "receive_finish",
-				"result", "success",
-				"agency_id", h.agencyId,
-			))
 			h.server.lotteryFinish.Done()
 
 			err := h.sendWinners(ctx)
@@ -94,7 +94,7 @@ func (h *handler) sendWinners(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		return nil
+		return net.ErrClosed
 	case <-lotteryFinish:
 		if h.agencyId == 1 {
 			log.Info(common.FmtLog(

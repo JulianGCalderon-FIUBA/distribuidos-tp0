@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"net"
 	"os/signal"
 	"syscall"
 
@@ -71,6 +73,8 @@ func main() {
 
 	err = s.run(ctx)
 	if err != nil {
-		log.Fatalf("failed to run server: %s", err)
+		if !errors.Is(err, net.ErrClosed) {
+			log.Fatalf("failed to run server: %s", err)
+		}
 	}
 }

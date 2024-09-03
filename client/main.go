@@ -67,19 +67,19 @@ func logConfig(c config) {
 func main() {
 	c, err := initConfig()
 	if err != nil {
-		log.Fatalf("%s", err)
+		log.Fatalf("Failed to initialize config: %v", err)
 	}
 
 	err = common.InitLogger(c.Log.Level)
 	if err != nil {
-		log.Fatalf("%s", err)
+		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 
 	logConfig(c)
 
 	bets, err := readAgency(c.Id)
 	if err != nil {
-		log.Fatal("%s", err)
+		log.Fatalf("Failed to read bet dataset: %v", err)
 	}
 
 	clientConfig := clientConfig{
@@ -92,11 +92,11 @@ func main() {
 	ctx, ctx_cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM)
 	defer ctx_cancel()
 
-	err = client.sendBets(ctx, bets)
-	if errors.Is(err, net.ErrClosed) {
-		return
-	} else if err != nil {
-		log.Fatalf("failed to run client: %s", err)
+	err = client.run(ctx, bets)
+	if err != nil {
+		if !errors.Is(err, net.ErrClosed) {
+			log.Fatalf("failed to run client: %s", err)
+		}
 	}
 }
 

@@ -56,13 +56,10 @@ func (c *client) createClientSocket() error {
 	return nil
 }
 
-func (c *client) sendBets(ctx context.Context, bets []protocol.BetMessage) (err error) {
+func (c *client) run(ctx context.Context, bets []protocol.BetMessage) (err error) {
 	err = c.createClientSocket()
 	if err != nil {
-		log.Fatalf(common.FmtLog("action", "connect",
-			"result", "fail",
-			"error", err,
-		))
+		return err
 	}
 	closer := common.SpawnCloser(ctx, c.conn, closeSocket)
 	defer func() {
@@ -97,11 +94,6 @@ func (c *client) sendBets(ctx context.Context, bets []protocol.BetMessage) (err 
 
 	winners, err := protocol.Receive[protocol.WinnersMessage](c.reader)
 	if err != nil {
-		log.Info(common.FmtLog(
-			"action", "consulta_ganadores",
-			"result", "success",
-			"error", err,
-		))
 		return err
 	} else {
 		log.Info(common.FmtLog(
