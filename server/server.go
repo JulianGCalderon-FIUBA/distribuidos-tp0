@@ -55,11 +55,15 @@ func (s *server) run(ctx context.Context) (err error) {
 	for i := 0; i < MAX_AGENCIES; i++ {
 		h, err := s.acceptClient()
 		if err != nil {
+			cancelHandlerCtx()
+			if errors.Is(err, net.ErrClosed) {
+				return nil
+			}
+
 			log.Error(common.FmtLog("action", "accept",
 				"result", "fail",
 				"error", err,
 			))
-			cancelHandlerCtx()
 			return err
 		}
 		if h != nil {

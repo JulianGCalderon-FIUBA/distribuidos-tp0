@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/signal"
 	"strings"
@@ -92,7 +93,9 @@ func main() {
 	defer ctx_cancel()
 
 	err = client.sendBets(ctx, bets)
-	if err != nil {
+	if errors.Is(err, net.ErrClosed) {
+		return
+	} else if err != nil {
 		log.Fatalf("failed to run client: %s", err)
 	}
 }
