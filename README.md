@@ -210,3 +210,5 @@ El protocolo continua haciendo el mismo, lo unico que cambio fue el uso de las p
 - Es necesario utilizar un `Mutex` para asegurar que solo una gorutina escribe en el archivo de apuestas al mismo tiempo.
 - Para asegurar que los ganadores se envien unicamente al final, se utiliza un `WaitGroup`.
 - Para asegurar que no finalice la ejecucion hasta que todos los hilos hayan terminado, entonces se utiliza otro `WaitGroup`.
+
+En este ejercicio, tambien cambie la estrategia del graceful shutdown. Antes, se utilizaban operaciones no bloqueantes y se verificaba en puntos estrategicos si habia finalizado el contexto. Ahora, diseñe una estructura [Closer](./common/closer.go) que se encarga de cerrar los recursos cuando finaliza el contexto, o cuando finaliza la ejecucion. También asegura que solo se cierren una única vez.
