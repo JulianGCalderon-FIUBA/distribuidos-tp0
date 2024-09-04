@@ -6,6 +6,22 @@ import (
 	"time"
 )
 
+// This module defines the discriminant (type) and structure of each
+// message that is sent over the network.
+//
+// To serialize this structures, I made my own generic serialization
+// library. It uses reflection (runtime data structure inspection)
+// to figure out how to serialize (and deserialize) each type into a
+// list of strings.  This is how generic serialization packages like
+// `encondig/json` work.  In theory it could serialize any type, but in
+// practice I only implemented the necessary features for my particular
+// protocol.
+//
+// This approach was not necessary, manually implementing the
+// serialization methods would probably have been faster (and more
+// performant). I did it this way as a personal challenge, as I've been
+// wanting to try out reflection for a long time.
+
 type MessageCode string
 
 const (
@@ -22,6 +38,9 @@ type Message interface {
 	Code() MessageCode
 }
 
+// Serializes a message as a list of strings and writes it to the writter.
+// If the message contains a comma, the field will be surrounded by
+// double quotes.
 func Send(m Message, w *csv.Writer) error {
 	rawData := Serialize(m)
 	data := append([]string{string(m.Code())}, rawData...)
