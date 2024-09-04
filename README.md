@@ -10,8 +10,8 @@ Solución al TP0 de la materia Sistemas Distribuidos. Cada ejercicio esta resuel
 - ej4: b5f968b44e189b936e67bb3f8892bc2226a7ea6f
 - ej5: 843cb85ccbdfa6199ba313633038a3878ff25bad
 - ej6: 06c48eee729531fccb55dfb2cd6a7a21e61447a4
-- ej7: 4e612af3333c9e309d9eb8e522c7c7cc84ed128d
-- ej8: 519bb36deac5e44cf91c36e5a59a391784128b13
+- ej7: ea8f40a52f7d0d2271862026e81bf8a054142520
+- ej8: 7edbe9a8150de99a56c14c2e8b669ab8ff85313f
 ```
 
 ## Ejercicio N°1:
