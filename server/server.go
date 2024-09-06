@@ -48,14 +48,13 @@ func (s *server) run(ctx context.Context) (err error) {
 
 	handlerCtx, cancelHandlerCtx := context.WithCancel(ctx)
 	defer func() {
-		s.activeHandlers.Wait()
 		cancelHandlerCtx()
+		s.activeHandlers.Wait()
 	}()
 
-	for i := 0; i < MAX_AGENCIES; i++ {
+	for {
 		h, err := s.acceptClient()
 		if err != nil {
-			cancelHandlerCtx()
 			return err
 		}
 		if h != nil {
@@ -71,8 +70,6 @@ func (s *server) run(ctx context.Context) (err error) {
 			}(h)
 		}
 	}
-
-	return nil
 }
 
 func (s *server) acceptClient() (*handler, error) {
