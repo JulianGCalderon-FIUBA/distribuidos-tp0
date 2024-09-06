@@ -5,7 +5,6 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/signal"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
-	"github.com/juliangcalderon-fiuba/distribuidos-tp0/protocol"
 	"github.com/mitchellh/mapstructure"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -80,10 +78,12 @@ func main() {
 
 	logConfig(c)
 
-	bets, err := readAgency(c.Id)
+	betsPath := fmt.Sprintf(".data/agency-%v.csv", c.Id)
+	betsFile, err := os.Open(betsPath)
 	if err != nil {
-		log.Fatalf("Failed to read bet dataset: %v", err)
+		log.Fatalf("Failed to open bet dataset: %v", err)
 	}
+	betsReader := csv.NewReader(betsFile)
 
 	clientConfig := clientConfig{
 		serverAddress: c.Server.Address,
@@ -91,52 +91,15 @@ func main() {
 		id:            c.Id,
 		loopPeriod:    c.Loop.Period,
 	}
-	client := newClient(clientConfig)
+	client := newClient(clientConfig, betsReader)
 
 	ctx, ctx_cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM)
 	defer ctx_cancel()
 
-	err = client.run(ctx, bets)
+	err = client.run(ctx)
 	if err != nil {
 		if !errors.Is(err, net.ErrClosed) {
 			log.Fatalf("failed to run client: %s", err)
 		}
 	}
-}
-
-func readAgency(id int) (bets []protocol.BetMessage, err error) {
-	agencyPath := fmt.Sprintf("./.data/agency-%v.csv", id)
-	file, err := os.Open(agencyPath)
-	if err != nil {
-		return
-	}
-	defer func() {
-		closeErr := file.Close()
-		err = errors.Join(err, closeErr)
-	}()
-
-	reader := csv.NewReader(file)
-	bets = make([]protocol.BetMessage, 0)
-
-	for {
-		var row []string
-		row, err = reader.Read()
-		if errors.Is(err, io.EOF) {
-			err = nil
-			break
-		}
-		if err != nil {
-			return
-		}
-
-		var bet protocol.BetMessage
-		bet, err = protocol.Deserialize[protocol.BetMessage](row)
-		if err != nil {
-			return
-		}
-
-		bets = append(bets, bet)
-	}
-
-	return
 }

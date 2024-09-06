@@ -20,15 +20,17 @@ type clientConfig struct {
 }
 
 type client struct {
-	config clientConfig
-	conn   *net.TCPConn
-	reader *csv.Reader
-	writer *csv.Writer
+	config     clientConfig
+	conn       *net.TCPConn
+	reader     *csv.Reader
+	writer     *csv.Writer
+	dataReader *csv.Reader
 }
 
-func newClient(config clientConfig) *client {
+func newClient(config clientConfig, betsReader *csv.Reader) *client {
 	client := &client{
-		config: config,
+		config:     config,
+		dataReader: betsReader,
 	}
 	return client
 }
@@ -58,7 +60,7 @@ func (c *client) createClientSocket() error {
 	return nil
 }
 
-func (c *client) run(ctx context.Context, bets []protocol.BetMessage) (err error) {
+func (c *client) run(ctx context.Context) (err error) {
 	err = c.createClientSocket()
 	if err != nil {
 		return err
@@ -69,8 +71,16 @@ func (c *client) run(ctx context.Context, bets []protocol.BetMessage) (err error
 		err = errors.Join(err, closeErr)
 	}()
 
-	for _, batch := range batchBets(bets, c.config.batchSize) {
-		err := c.sendBatch(batch)
+	for {
+		batch, err := c.readBatch()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		err = c.sendBatch(batch)
 		if err != nil {
 			log.Error(common.FmtLog("send_batch", err))
 			if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
@@ -128,20 +138,32 @@ func (c *client) sendBatch(bets []protocol.BetMessage) error {
 	return nil
 }
 
-// Creates an iterator of batches of `bets`, each with max `batchSize` elements
-func batchBets(bets []protocol.BetMessage, batchSize int) [][]protocol.BetMessage {
-	batches := make([][]protocol.BetMessage, 0)
+// Reads batch from agency data, with up to `c.config.batchSize` bets
+func (c *client) readBatch() ([]protocol.BetMessage, error) {
+	batch := make([]protocol.BetMessage, 0, c.config.batchSize)
 
-	for len(bets) > 0 {
-		currentBatchEnd := min(len(bets), batchSize)
+	for i := 0; i < c.config.batchSize; i++ {
+		betRecord, err := c.dataReader.Read()
+		if errors.Is(err, io.EOF) {
+			if len(batch) > 0 {
+				return batch, nil
+			} else {
+				return nil, io.EOF
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
 
-		var batch []protocol.BetMessage
-		bets, batch = bets[currentBatchEnd:], bets[:currentBatchEnd]
+		bet, err := protocol.Deserialize[protocol.BetMessage](betRecord)
+		if err != nil {
+			return nil, err
+		}
 
-		batches = append(batches, batch)
+		batch = append(batch, bet)
 	}
 
-	return batches
+	return batch, nil
 }
 
 func closeSocket(c *net.TCPConn) error {
