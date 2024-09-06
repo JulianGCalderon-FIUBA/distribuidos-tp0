@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
-	"github.com/juliangcalderon-fiuba/distribuidos-tp0/mycsv"
+	"github.com/juliangcalderon-fiuba/distribuidos-tp0/safeio"
 	"github.com/mitchellh/mapstructure"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -83,7 +83,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to open bet dataset: %v", err)
 	}
-	betsReader := mycsv.NewReader(betsFile)
+	betsReader := safeio.NewReader(betsFile)
 
 	clientConfig := clientConfig{
 		serverAddress: c.Server.Address,

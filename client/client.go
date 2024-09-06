@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
-	"github.com/juliangcalderon-fiuba/distribuidos-tp0/mycsv"
+	"github.com/juliangcalderon-fiuba/distribuidos-tp0/safeio"
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/protocol"
 )
 
@@ -22,12 +22,12 @@ type clientConfig struct {
 type client struct {
 	config     clientConfig
 	conn       *net.TCPConn
-	connReader *mycsv.Reader
-	connWriter *mycsv.Writer
-	betsReader *mycsv.Reader
+	connReader *safeio.Reader
+	connWriter *safeio.Writer
+	betsReader *safeio.Reader
 }
 
-func newClient(config clientConfig, betsReader *mycsv.Reader) *client {
+func newClient(config clientConfig, betsReader *safeio.Reader) *client {
 	client := &client{
 		config:     config,
 		betsReader: betsReader,
@@ -47,8 +47,8 @@ func (c *client) createClientSocket() error {
 	}
 
 	c.conn = conn
-	c.connReader = mycsv.NewReader(conn)
-	c.connWriter = mycsv.NewWriter(conn)
+	c.connReader = safeio.NewReader(conn)
+	c.connWriter = safeio.NewWriter(conn)
 
 	err = protocol.SendFlush(protocol.HelloMessage{AgencyId: c.config.id}, c.connWriter)
 	if err != nil {

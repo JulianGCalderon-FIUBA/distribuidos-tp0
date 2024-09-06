@@ -1,4 +1,4 @@
-package mycsv
+package safeio
 
 import (
 	"bufio"

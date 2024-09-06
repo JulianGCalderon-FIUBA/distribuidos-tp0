@@ -8,7 +8,7 @@ import (
 	"net"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
-	"github.com/juliangcalderon-fiuba/distribuidos-tp0/mycsv"
+	"github.com/juliangcalderon-fiuba/distribuidos-tp0/safeio"
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/protocol"
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/server/lottery"
 )
@@ -16,13 +16,13 @@ import (
 type handler struct {
 	agencyId int
 	conn     net.Conn
-	reader   *mycsv.Reader
-	writer   *mycsv.Writer
+	reader   *safeio.Reader
+	writer   *safeio.Writer
 	server   *server
 }
 
 func createHandler(s *server, conn net.Conn) (*handler, error) {
-	reader := mycsv.NewReader(conn)
+	reader := safeio.NewReader(conn)
 
 	hello, err := protocol.Receive[protocol.HelloMessage](reader)
 	if err != nil {
@@ -33,7 +33,7 @@ func createHandler(s *server, conn net.Conn) (*handler, error) {
 		agencyId: hello.AgencyId,
 		conn:     conn,
 		reader:   reader,
-		writer:   mycsv.NewWriter(conn),
+		writer:   safeio.NewWriter(conn),
 		server:   s,
 	}, nil
 }

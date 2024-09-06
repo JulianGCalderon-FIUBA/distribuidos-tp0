@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/juliangcalderon-fiuba/distribuidos-tp0/mycsv"
+	"github.com/juliangcalderon-fiuba/distribuidos-tp0/safeio"
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/protocol"
 )
 
@@ -43,7 +43,7 @@ func StoreBets(bets []Bet) (err error) {
 }
 
 func StoreBetsIn(w io.Writer, bets []Bet) (err error) {
-	writer := mycsv.NewWriter(w)
+	writer := safeio.NewWriter(w)
 
 	for _, bet := range bets {
 		writer.Write(protocol.Serialize(bet))
@@ -71,7 +71,7 @@ func LoadBets() (bets []Bet, err error) {
 }
 
 func LoadBetsFrom(r io.Reader) ([]Bet, error) {
-	reader := mycsv.NewReader(r)
+	reader := safeio.NewReader(r)
 	bets := make([]Bet, 0)
 
 	for {
