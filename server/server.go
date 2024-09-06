@@ -15,7 +15,7 @@ const MAX_AGENCIES = 5
 
 type server struct {
 	listener       net.Listener
-	storageLock    *sync.Mutex
+	storageLock    *sync.RWMutex
 	lotteryFinish  *sync.WaitGroup
 	activeHandlers *sync.WaitGroup
 }
@@ -34,7 +34,7 @@ func newServer(port int, listenBacklog int) (*server, error) {
 	return &server{
 		listener:       listener,
 		lotteryFinish:  lotteryFinish,
-		storageLock:    &sync.Mutex{},
+		storageLock:    &sync.RWMutex{},
 		activeHandlers: &sync.WaitGroup{},
 	}, nil
 }
@@ -103,9 +103,9 @@ func closeListener(listener net.Listener) error {
 }
 
 func (s *server) getWinners() (map[int][]int, error) {
-	s.storageLock.Lock()
+	s.storageLock.RLock()
 	allBets, err := lottery.LoadBets()
-	s.storageLock.Unlock()
+	s.storageLock.RUnlock()
 
 	if err != nil {
 		return nil, err
