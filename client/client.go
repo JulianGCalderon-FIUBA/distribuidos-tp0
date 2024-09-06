@@ -22,15 +22,15 @@ type clientConfig struct {
 type client struct {
 	config     clientConfig
 	conn       *net.TCPConn
-	reader     *csv.Reader
-	writer     *csv.Writer
-	dataReader *csv.Reader
+	connReader *csv.Reader
+	connWriter *csv.Writer
+	betsReader *csv.Reader
 }
 
 func newClient(config clientConfig, betsReader *csv.Reader) *client {
 	client := &client{
 		config:     config,
-		dataReader: betsReader,
+		betsReader: betsReader,
 	}
 	return client
 }
@@ -47,11 +47,11 @@ func (c *client) createClientSocket() error {
 	}
 
 	c.conn = conn
-	c.reader = csv.NewReader(conn)
-	c.writer = csv.NewWriter(conn)
-	c.reader.FieldsPerRecord = -1
+	c.connReader = csv.NewReader(conn)
+	c.connWriter = csv.NewWriter(conn)
+	c.connReader.FieldsPerRecord = -1
 
-	err = protocol.SendFlush(protocol.HelloMessage{AgencyId: c.config.id}, c.writer)
+	err = protocol.SendFlush(protocol.HelloMessage{AgencyId: c.config.id}, c.connWriter)
 	if err != nil {
 		closeErr := closeSocket(c.conn)
 		return errors.Join(err, closeErr)
@@ -99,12 +99,12 @@ func (c *client) run(ctx context.Context) (err error) {
 		}
 	}
 
-	err = protocol.SendFlush(protocol.FinishMessage{}, c.writer)
+	err = protocol.SendFlush(protocol.FinishMessage{}, c.connWriter)
 	if err != nil {
 		return err
 	}
 
-	winners, err := protocol.Receive[protocol.WinnersMessage](c.reader)
+	winners, err := protocol.Receive[protocol.WinnersMessage](c.connReader)
 	if err != nil {
 		return err
 	} else {
@@ -117,20 +117,20 @@ func (c *client) run(ctx context.Context) (err error) {
 }
 
 func (c *client) sendBatch(bets []protocol.BetMessage) error {
-	err := protocol.SendFlush(protocol.BatchMessage{BatchSize: len(bets)}, c.writer)
+	err := protocol.SendFlush(protocol.BatchMessage{BatchSize: len(bets)}, c.connWriter)
 	if err != nil {
 		return err
 	}
 
 	for _, bet := range bets {
-		protocol.Send(bet, c.writer)
+		protocol.Send(bet, c.connWriter)
 	}
-	err = protocol.Flush(c.writer)
+	err = protocol.Flush(c.connWriter)
 	if err != nil {
 		return err
 	}
 
-	_, err = protocol.Receive[protocol.OkMessage](c.reader)
+	_, err = protocol.Receive[protocol.OkMessage](c.connReader)
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func (c *client) readBatch() ([]protocol.BetMessage, error) {
 	batch := make([]protocol.BetMessage, 0, c.config.batchSize)
 
 	for i := 0; i < c.config.batchSize; i++ {
-		betRecord, err := c.dataReader.Read()
+		betRecord, err := c.betsReader.Read()
 		if errors.Is(err, io.EOF) {
 			if len(batch) > 0 {
 				return batch, nil
