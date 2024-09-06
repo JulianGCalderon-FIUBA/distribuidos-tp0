@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"encoding/csv"
 	"errors"
 	"io"
 	"net"
 	"time"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
+	"github.com/juliangcalderon-fiuba/distribuidos-tp0/mycsv"
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/protocol"
 )
 
@@ -22,12 +22,12 @@ type clientConfig struct {
 type client struct {
 	config     clientConfig
 	conn       *net.TCPConn
-	connReader *csv.Reader
-	connWriter *csv.Writer
-	betsReader *csv.Reader
+	connReader *mycsv.Reader
+	connWriter *mycsv.Writer
+	betsReader *mycsv.Reader
 }
 
-func newClient(config clientConfig, betsReader *csv.Reader) *client {
+func newClient(config clientConfig, betsReader *mycsv.Reader) *client {
 	client := &client{
 		config:     config,
 		betsReader: betsReader,
@@ -47,9 +47,8 @@ func (c *client) createClientSocket() error {
 	}
 
 	c.conn = conn
-	c.connReader = csv.NewReader(conn)
-	c.connWriter = csv.NewWriter(conn)
-	c.connReader.FieldsPerRecord = -1
+	c.connReader = mycsv.NewReader(conn)
+	c.connWriter = mycsv.NewWriter(conn)
 
 	err = protocol.SendFlush(protocol.HelloMessage{AgencyId: c.config.id}, c.connWriter)
 	if err != nil {

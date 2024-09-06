@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/common"
+	"github.com/juliangcalderon-fiuba/distribuidos-tp0/mycsv"
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/protocol"
 	"github.com/juliangcalderon-fiuba/distribuidos-tp0/server/lottery"
 )
@@ -16,14 +16,13 @@ import (
 type handler struct {
 	agencyId int
 	conn     net.Conn
-	reader   *csv.Reader
-	writer   *csv.Writer
+	reader   *mycsv.Reader
+	writer   *mycsv.Writer
 	server   *server
 }
 
 func createHandler(s *server, conn net.Conn) (*handler, error) {
-	reader := csv.NewReader(conn)
-	reader.FieldsPerRecord = -1
+	reader := mycsv.NewReader(conn)
 
 	hello, err := protocol.Receive[protocol.HelloMessage](reader)
 	if err != nil {
@@ -34,7 +33,7 @@ func createHandler(s *server, conn net.Conn) (*handler, error) {
 		agencyId: hello.AgencyId,
 		conn:     conn,
 		reader:   reader,
-		writer:   csv.NewWriter(conn),
+		writer:   mycsv.NewWriter(conn),
 		server:   s,
 	}, nil
 }

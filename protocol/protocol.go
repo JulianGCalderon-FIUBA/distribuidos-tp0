@@ -1,9 +1,10 @@
 package protocol
 
 import (
-	"encoding/csv"
 	"fmt"
 	"time"
+
+	"github.com/juliangcalderon-fiuba/distribuidos-tp0/mycsv"
 )
 
 // This module defines the discriminant (type) and structure of each
@@ -41,26 +42,25 @@ type Message interface {
 // Serializes a message as a list of strings and writes it to the writter.
 // If the message contains a comma, the field will be surrounded by
 // double quotes.
-func Send(m Message, w *csv.Writer) {
+func Send(m Message, w *mycsv.Writer) {
 	rawData := Serialize(m)
 	data := append([]string{string(m.Code())}, rawData...)
 
-	_ = w.Write(data)
+	w.Write(data)
 }
 
 // Like `Send`, but flushes the buffer afterwards.
-func SendFlush(m Message, w *csv.Writer) error {
+func SendFlush(m Message, w *mycsv.Writer) error {
 	Send(m, w)
 	return Flush(w)
 }
 
 // Flushes the buffer and returns any errors encountered
-func Flush(w *csv.Writer) error {
-	w.Flush()
-	return w.Error()
+func Flush(w *mycsv.Writer) error {
+	return w.Flush()
 }
 
-func ReceiveAny(r *csv.Reader) (m Message, err error) {
+func ReceiveAny(r *mycsv.Reader) (m Message, err error) {
 	record, err := r.Read()
 	if err != nil {
 		return
@@ -84,7 +84,7 @@ func ReceiveAny(r *csv.Reader) (m Message, err error) {
 	}
 }
 
-func Receive[M Message](r *csv.Reader) (M, error) {
+func Receive[M Message](r *mycsv.Reader) (M, error) {
 	var m M
 
 	record, err := r.Read()
