@@ -11,7 +11,7 @@ Solución al TP0 de la materia Sistemas Distribuidos. Cada ejercicio esta resuel
 - ej5: 843cb85ccbdfa6199ba313633038a3878ff25bad
 - ej6: 06c48eee729531fccb55dfb2cd6a7a21e61447a4
 - ej7: ea8f40a52f7d0d2271862026e81bf8a054142520
-- ej8: 7edbe9a8150de99a56c14c2e8b669ab8ff85313f
+- ej8: 6f6b1f0219a638c3d5d47903ac39f04507c76650
 ```
 
 ## Ejercicio N°1:
