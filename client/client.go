@@ -49,7 +49,7 @@ func (c *client) createClientSocket() error {
 	c.writer = csv.NewWriter(conn)
 	c.reader.FieldsPerRecord = -1
 
-	err = protocol.Send(protocol.HelloMessage{AgencyId: c.config.id}, c.writer)
+	err = protocol.SendFlush(protocol.HelloMessage{AgencyId: c.config.id}, c.writer)
 	if err != nil {
 		closeErr := closeSocket(c.conn)
 		return errors.Join(err, closeErr)
@@ -89,7 +89,7 @@ func (c *client) run(ctx context.Context, bets []protocol.BetMessage) (err error
 		}
 	}
 
-	err = protocol.Send(protocol.FinishMessage{}, c.writer)
+	err = protocol.SendFlush(protocol.FinishMessage{}, c.writer)
 	if err != nil {
 		return err
 	}
@@ -107,16 +107,17 @@ func (c *client) run(ctx context.Context, bets []protocol.BetMessage) (err error
 }
 
 func (c *client) sendBatch(bets []protocol.BetMessage) error {
-	err := protocol.Send(protocol.BatchMessage{BatchSize: len(bets)}, c.writer)
+	err := protocol.SendFlush(protocol.BatchMessage{BatchSize: len(bets)}, c.writer)
 	if err != nil {
 		return err
 	}
 
 	for _, bet := range bets {
-		err := protocol.Send(bet, c.writer)
-		if err != nil {
-			return err
-		}
+		protocol.Send(bet, c.writer)
+	}
+	err = protocol.Flush(c.writer)
+	if err != nil {
+		return err
 	}
 
 	_, err = protocol.Receive[protocol.OkMessage](c.reader)

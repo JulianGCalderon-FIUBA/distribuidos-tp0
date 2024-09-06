@@ -41,11 +41,21 @@ type Message interface {
 // Serializes a message as a list of strings and writes it to the writter.
 // If the message contains a comma, the field will be surrounded by
 // double quotes.
-func Send(m Message, w *csv.Writer) error {
+func Send(m Message, w *csv.Writer) {
 	rawData := Serialize(m)
 	data := append([]string{string(m.Code())}, rawData...)
 
 	_ = w.Write(data)
+}
+
+// Like `Send`, but flushes the buffer afterwards.
+func SendFlush(m Message, w *csv.Writer) error {
+	Send(m, w)
+	return Flush(w)
+}
+
+// Flushes the buffer and returns any errors encountered
+func Flush(w *csv.Writer) error {
 	w.Flush()
 	return w.Error()
 }

@@ -106,7 +106,7 @@ func (h *handler) sendWinners(ctx context.Context) error {
 			return err
 		}
 
-		err = protocol.Send(protocol.WinnersMessage(winners[h.agencyId]), h.writer)
+		err = protocol.SendFlush(protocol.WinnersMessage(winners[h.agencyId]), h.writer)
 		if err != nil {
 			return err
 		}
@@ -141,11 +141,11 @@ func (h *handler) receiveBatch(batchSize int) error {
 	h.server.storageLock.Unlock()
 	if storeErr != nil {
 		storeErr = fmt.Errorf("failed to store bets: %w", storeErr)
-		sendErr := protocol.Send(protocol.ErrMessage{}, h.writer)
+		sendErr := protocol.SendFlush(protocol.ErrMessage{}, h.writer)
 		return errors.Join(storeErr, sendErr)
 	}
 
-	err := protocol.Send(protocol.OkMessage{}, h.writer)
+	err := protocol.SendFlush(protocol.OkMessage{}, h.writer)
 	if err != nil {
 		return err
 	}
